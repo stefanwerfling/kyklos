@@ -11,7 +11,8 @@ import {
     ObservationSchema,
     ProcedureSchema,
     ProjectSchema,
-    ReleaseDecisionSchema
+    ReleaseDecisionSchema,
+    ToolExecutionSchema
 } from '../../src/index';
 import {
     makeCheck,
@@ -25,7 +26,8 @@ import {
     makeObservation,
     makeProcedure,
     makeProject,
-    makeReleaseDecision
+    makeReleaseDecision,
+    makeToolExecution
 } from '../fixtures';
 
 const cases = [
@@ -40,7 +42,8 @@ const cases = [
     {name: 'Incident', schema: IncidentSchema, value: makeIncident()},
     {name: 'ImprovementProposal', schema: ImprovementProposalSchema, value: makeImprovementProposal()},
     {name: 'ReleaseDecision', schema: ReleaseDecisionSchema, value: makeReleaseDecision()},
-    {name: 'Lesson', schema: LessonSchema, value: makeLesson()}
+    {name: 'Lesson', schema: LessonSchema, value: makeLesson()},
+    {name: 'ToolExecution', schema: ToolExecutionSchema, value: makeToolExecution()}
 ];
 
 describe('Domain schemas accept valid samples', () => {

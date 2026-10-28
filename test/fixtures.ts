@@ -13,6 +13,7 @@ import {
     CycleState,
     type Deviation,
     type Evidence,
+    EvidenceSource,
     EvidenceType,
     type ImprovementProposal,
     type Incident,
@@ -22,6 +23,7 @@ import {
     LessonStatus,
     type Observation,
     OnFailure,
+    PermissionTier,
     type Procedure,
     type Project,
     ProposalStatus,
@@ -29,6 +31,7 @@ import {
     type ReleaseDecision,
     ReleaseOutcome,
     Severity,
+    type ToolExecution,
     ValidationResult
 } from '../src/index';
 
@@ -85,10 +88,31 @@ export const makeEvidence = (): Evidence => {
     return {
         id: 'ev-1',
         type: EvidenceType.Log,
+        source: EvidenceSource.ToolExecution,
         inline: 'restore ok',
         sha256: SHA,
         producedBy: 'backup.restore-test',
         createdAt: TS
+    };
+};
+
+export const makeToolExecution = (): ToolExecution => {
+    return {
+        id: 'exec-1',
+        cycleId: 'cyc-1',
+        checkId: 'cli.test',
+        adapter: AdapterKind.Shell,
+        permissionTier: PermissionTier.TempTest,
+        command: 'npm run test',
+        status: CheckStatus.Passed,
+        exitCode: 0,
+        startedAt: TS,
+        endedAt: TS,
+        durationMs: 1234,
+        stdout: 'ok',
+        stderr: '',
+        stdoutSha256: SHA,
+        stderrSha256: SHA
     };
 };
 

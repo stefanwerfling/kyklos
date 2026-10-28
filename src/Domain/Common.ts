@@ -136,6 +136,31 @@ export enum EvidenceType {
 }
 
 /**
+ * Provenance tier of a piece of evidence. Keeps an LLM assertion from ever
+ * being treated as a machine-verified result.
+ */
+export enum EvidenceSource {
+    LlmAssertion = 'llm_assertion',
+    ToolExecution = 'tool_execution',
+    MachineVerified = 'machine_verified',
+    ManuallyConfirmed = 'manually_confirmed',
+    NotExecutable = 'not_executable'
+}
+
+/**
+ * The authority a tool action requires. Adapters declare the tier they act at,
+ * so permission boundaries are explicit and auditable.
+ */
+export enum PermissionTier {
+    Read = 'read',
+    TempTest = 'temp_test',
+    LocalWrite = 'local_write',
+    Shared = 'shared',
+    External = 'external',
+    Production = 'production'
+}
+
+/**
  * Execution adapter used by a check action.
  */
 export enum AdapterKind {

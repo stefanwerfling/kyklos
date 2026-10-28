@@ -5,7 +5,7 @@
  * cannot be silently altered.
  */
 import {ExtractSchemaResultType, Vts} from 'vts';
-import {EvidenceType, IdSchema, Sha256Schema, TimestampSchema} from './Common.js';
+import {EvidenceSource, EvidenceType, IdSchema, Sha256Schema, TimestampSchema} from './Common.js';
 
 /**
  * Schema of Evidence.
@@ -13,6 +13,7 @@ import {EvidenceType, IdSchema, Sha256Schema, TimestampSchema} from './Common.js
 export const EvidenceSchema = Vts.object({
     id: IdSchema,
     type: Vts.enum(EvidenceType),
+    source: Vts.enum(EvidenceSource),
     uri: Vts.optional(Vts.string({description: 'Location of the external evidence content'})),
     inline: Vts.optional(Vts.string({description: 'Inline evidence content'})),
     sha256: Sha256Schema,
