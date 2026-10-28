@@ -1,0 +1,59 @@
+{
+  "name": "kyklos",
+  "version": "0.1.0",
+  "description": "Kyklos — deterministic verification, experience and improvement engine for recurring technical procedures.",
+  "author": "Stefan Werfling",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "clean": "rm -rf dist",
+    "compile": "tsc --project tsconfig.json",
+    "build": "npm run clean && npm run compile",
+    "typecheck": "tsc --noEmit --project tsconfig.json",
+    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint src --ext .ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "update-vts": "npm install git+https://github.com/OpenSourcePKG/vts.git --force"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/stefanwerfling/kyklos.git"
+  },
+  "keywords": [
+    "verification",
+    "checklist",
+    "release",
+    "audit",
+    "deterministic"
+  ],
+  "bugs": {
+    "url": "https://github.com/stefanwerfling/kyklos/issues"
+  },
+  "homepage": "https://github.com/stefanwerfling/kyklos#readme",
+  "dependencies": {
+    "vts": "git+https://github.com/OpenSourcePKG/vts.git"
+  },
+  "devDependencies": {
+    "@stylistic/eslint-plugin-ts": "^3.0.0",
+    "@types/node": "^22.15.18",
+    "@typescript-eslint/eslint-plugin": "^8.21.0",
+    "@typescript-eslint/parser": "^8.21.0",
+    "eslint": "^9.19.0",
+    "eslint-plugin-import": "^2.31.0",
+    "eslint-plugin-prefer-arrow": "^1.2.3",
+    "typescript": "^5.7.3",
+    "vitest": "^3.2.0"
+  }
+}
