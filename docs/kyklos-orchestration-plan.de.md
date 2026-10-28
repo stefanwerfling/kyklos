@@ -74,8 +74,9 @@ konkreter Alternative; nie stillschweigend bestanden.
   Shell-Adapter, misst Dauer, baut `ToolExecution`, mappt nicht-ausgeführt → `not_executable`) — `src/Execution`.
 - **Akzeptanz (erfüllt, verifiziert 2026-10-28):** belegt durch einen ECHTEN Lauf gegen Kyklos' eigenes
   package.json — 5 CLI-Checks erkannt und `npm run typecheck` ausgeführt (exit 0, status passed,
-  durationMs 1347, `source: tool_execution`). Makefile-Erkennung ist Folgeschritt. Volle CycleEngine-
-  Integration der ToolExecution-Persistenz folgt später (N7).
+  `source: tool_execution`). Makefile-Erkennung ist Folgeschritt. **ToolExecution ist jetzt durch
+  `CycleEngine` integriert** (persistiert + im Report referenziert; Tier aus der vertrauenswürdigen
+  Aktion; ein echter `node`-Prozess-Integrationstest belegt die volle Pipeline) — siehe Härtungs-Durchlauf.
 
 ### N3 — Git-Adapter (nur lesend)  ✅ erledigt
 - `GitAdapter` (`src/Runner`): komponiert den Shell-Adapter (bin fix auf `git`), erlaubt nur lesende

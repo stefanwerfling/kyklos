@@ -72,9 +72,10 @@ concrete alternative; it is never silently marked passed.
   test → build/compile; invents nothing), `ProcessRunner` (runs via the allow-listed shell adapter,
   times it, builds a `ToolExecution`, maps non-executed → `not_executable`) — `src/Execution`.
 - **Acceptance (met, verified 2026-10-28):** proven by a REAL run against Kyklos's own package.json —
-  discovered 5 CLI checks and executed `npm run typecheck` (exit 0, status passed, durationMs 1347,
-  `source: tool_execution`). Makefile discovery is a follow-up. Full CycleEngine integration of
-  ToolExecution persistence is a later step (N7).
+  discovered 5 CLI checks and executed `npm run typecheck` (exit 0, status passed,
+  `source: tool_execution`). Makefile discovery is a follow-up. **ToolExecution is now integrated
+  through `CycleEngine`** (persisted + referenced by the report; trusted tier from the action; a real
+  `node`-process integration test proves the full pipeline) — see the hardening pass.
 
 ### N3 — Git adapter (read-only)  ✅ done
 - `GitAdapter` (`src/Runner`): composes the shell adapter (bin pinned to `git`), allows only read

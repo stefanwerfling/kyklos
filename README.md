@@ -23,14 +23,31 @@ binding release criteria automatically — they require validation first.
 
 ## Status
 
-Early development, pre-MVP. Milestone **M0 (project scaffold)** is in place:
+The deterministic engine (M0–M7) and the orchestration layer (N1–N9) are
+implemented and automated-tested (179 Vitest tests; `build`/`lint`/`typecheck`
+green). The core runs with **no LLM**; an LLM, when present, is advisory only
+and can never change a result.
 
-- TypeScript (ESM, `NodeNext`, ES2022, strict)
-- ESLint 9 + `@typescript-eslint` + `@stylistic` + `prefer-arrow` + `import`
-- Vitest
+Each capability is labelled by how far it actually goes:
 
-The domain model and the deterministic cycle engine follow in M1–M4
-(see the plan below).
+| Capability | State |
+|---|---|
+| Domain model, versioned checklists, deterministic execution & gatekeeping | **implemented, automated-tested** |
+| Release decision, deviations/incidents, similarity search, improvement proposals, lesson transfer | **implemented, automated-tested** |
+| Evidence provenance + `ToolExecution` through the full cycle (persisted, referenced by the report) | **implemented, automated-tested** (real `node` process integration test) |
+| CLI adapter + discovery (package.json scripts) | **implemented, automated-tested**; a real `npm run typecheck` was executed and recorded |
+| Permission policy (fail-closed, tier from the trusted action) | **implemented, automated-tested** |
+| Git adapter (read-only) | **implemented, automated-tested** (real `git`) |
+| Browser adapter + `browserHealthy` (strict) + URL scheme/host guard | **implemented, automated-tested**; a real Chromium run was **manually demonstrated** via browser automation. A `PlaywrightDriver` is an **open integration** (Playwright not installed) |
+| Emulator adapter | **interface + availability check only**; running an app/user flow is an **open integration**. No AVD in this environment → **not executable** here |
+| HTML cycle report (escaped, evidence↔analysis links) | **implemented, automated-tested**. A richer interactive UI is **planned** |
+| LLM advisor | **interface only** (`NullLlmAdvisor`); a real Claude-API advisor is **planned** |
+| Makefile/CI discovery, Docker/package-manager/backup adapters, parallelism/caching/cost | **planned** |
+
+Legend: *implemented* = code present; *automated-tested* = covered by Vitest;
+*manually demonstrated* = run once by a human/agent, not in CI; *interface only*
+= contract without a production driver; *not executable here* = missing
+infrastructure; *planned* = not built. See the orchestration plan for details.
 
 ## Language policy
 

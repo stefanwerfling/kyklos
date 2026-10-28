@@ -27,14 +27,31 @@ eine Validierung.
 
 ## Status
 
-Frühe Entwicklung, vor dem MVP. Meilenstein **M0 (Projektgerüst)** ist umgesetzt:
+Die deterministische Engine (M0–M7) und die Orchestrierungsschicht (N1–N9) sind
+implementiert und automatisiert getestet (179 Vitest-Tests; `build`/`lint`/`typecheck`
+grün). Der Kern läuft **ohne LLM**; ein LLM ist, falls vorhanden, nur beratend und
+kann nie ein Ergebnis ändern.
 
-- TypeScript (ESM, `NodeNext`, ES2022, strict)
-- ESLint 9 + `@typescript-eslint` + `@stylistic` + `prefer-arrow` + `import`
-- Vitest
+Jede Fähigkeit ist danach beschriftet, wie weit sie tatsächlich reicht:
 
-Das Domänenmodell und die deterministische Zyklus-Engine folgen in M1–M4
-(siehe Plan unten).
+| Fähigkeit | Stand |
+|---|---|
+| Domänenmodell, versionierte Checklisten, deterministische Ausführung & Gatekeeping | **implementiert, automatisiert getestet** |
+| Freigabe, Abweichungen/Vorfälle, Ähnlichkeitssuche, Verbesserungsvorschläge, Lesson-Transfer | **implementiert, automatisiert getestet** |
+| Evidence-Provenance + `ToolExecution` durch den ganzen Zyklus (persistiert, im Report referenziert) | **implementiert, automatisiert getestet** (echter `node`-Prozess-Integrationstest) |
+| CLI-Adapter + Discovery (package.json-Scripts) | **implementiert, automatisiert getestet**; ein echtes `npm run typecheck` wurde ausgeführt und erfasst |
+| Permission-Policy (fail-closed, Tier aus vertrauenswürdiger Aktion) | **implementiert, automatisiert getestet** |
+| Git-Adapter (nur lesend) | **implementiert, automatisiert getestet** (echtes `git`) |
+| Browser-Adapter + `browserHealthy` (strikt) + URL-Schema-/Host-Schutz | **implementiert, automatisiert getestet**; ein echter Chromium-Lauf wurde via Browser-Automatisierung **manuell nachgewiesen**. Ein `PlaywrightDriver` ist **offene Integration** (Playwright nicht installiert) |
+| Emulator-Adapter | **nur Interface + Verfügbarkeitsprüfung**; App/User-Flow ausführen ist **offene Integration**. Kein AVD in dieser Umgebung → hier **nicht ausführbar** |
+| HTML-Zyklus-Report (escaped, Links Nachweis↔Analyse) | **implementiert, automatisiert getestet**. Reichere interaktive UI ist **geplant** |
+| LLM-Berater | **nur Interface** (`NullLlmAdvisor`); ein echter Claude-API-Berater ist **geplant** |
+| Makefile/CI-Discovery, Docker/Paketmanager/Backup-Adapter, Parallelität/Caching/Kosten | **geplant** |
+
+Legende: *implementiert* = Code vorhanden; *automatisiert getestet* = per Vitest abgedeckt;
+*manuell nachgewiesen* = einmal von Mensch/Agent ausgeführt, nicht in CI; *nur Interface*
+= Kontrakt ohne Produktiv-Treiber; *hier nicht ausführbar* = fehlende Infrastruktur;
+*geplant* = nicht gebaut. Details im Orchestrierungsplan.
 
 ## Sprachregelung
 
