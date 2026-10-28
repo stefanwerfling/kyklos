@@ -122,14 +122,23 @@ konkreter Alternative; nie stillschweigend bestanden.
   bösartiger Advisor mit „alles bestanden" lässt einen failed-Status Failed — das LLM kann kein Ergebnis
   kippen. Ergebnis-Wiederverwendung / Parallelität unabhängiger Checks sind spätere Verfeinerungen.
 
-### N8 — Report/UI
-- Start mit einem deterministischen maschinenlesbaren + HTML-Report eines Zyklus (Status, Checks,
-  Nachweise, Abweichungen, Entscheidung, ähnliche frühere Fälle, offene Risiken) mit funktionierenden
-  Links Nachweis↔Analyse. Eine reichere interaktive UI folgt.
+### N8 — Report/UI  ✅ erledigt (deterministischer Report, reichere UI später)
+- `ReportBuilder` (maschinenlesbarer `CycleReport`: Checks mit ihren Deviations verlinkt, offene Risiken) +
+  `HtmlReportRenderer` (self-contained HTML; aller dynamische Text HTML-escaped — nicht vertrauenswürdige
+  Inhalte sind Daten, nie Markup; fehlschlagende Checks verlinken auf ihre Deviation-Anker) — `src/Report`.
+- **Akzeptanz (erfüllt, verifiziert 2026-10-28):** baut Report, verlinkt Checks↔Deviations, rendert HTML,
+  das ein `<script>`-Payload escaped, deterministisch; belegt an echtem Zyklus (12 Checks, 1 Deviation →
+  passed_with_deviations → approve, offenes Risiko gelistet). Reichere interaktive UI ist späterer Meilenstein.
 
-### N9 — Sicherheits-/Audit-Härtung + E2E
-- `PermissionTier` auf jedem Adapter erzwingen; Repo-/Web-/Log-Inhalte als nicht vertrauenswürdige Daten
-  (nie Anweisungen); destruktive/produktive Aktionen brauchen explizite Freigabe + Wiederherstellungspfad; E2E-Tests.
+### N9 — Sicherheits-/Audit-Härtung + E2E  ✅ erledigt (erster Durchgang)
+- `PermissionPolicy` (Tier-Obergrenze; `src/Security`) im `ProcessRunner` erzwungen: eine Aktion über der
+  Grenze wird `not_executable` protokolliert, ohne zu laufen — nie stiller Pass, nie stille Ausführung.
+  Untrusted-Content wird als Daten behandelt (HTML-Escaping N8; Adapter-Allowlists; nur-beratendes LLM N7).
+  Ein E2E-Test fährt discovery → engine → gatekeeping → report → render → release.
+- **Akzeptanz (erfüllt, verifiziert 2026-10-28):** Permission-Denial blockt ein zu hohes Tier; die volle
+  E2E-Kette besteht für sauberen Lauf (approve) und fehlschlagenden Lauf (reject mit offenen Risiken); 166 Tests grün.
+- Folgeschritte: destruktive/produktive Aktionen mit explizitem Freigabe- + Wiederherstellungs-Workflow und
+  breitere Tier-Deklaration auf Adapter-Ebene bleiben zur weiteren Härtung.
 
 ## 5. Sicherheit & Schutz vor Falscherfolg (querschnittlich, ab Tag 1)
 

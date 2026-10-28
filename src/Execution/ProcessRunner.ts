@@ -13,6 +13,7 @@ import {Clock} from '../Cycle/Clock.js';
 import {IdGenerator} from '../Cycle/IdGenerator.js';
 import {Adapter} from '../Runner/Adapter.js';
 import {SuccessCriterionEvaluator} from '../Runner/SuccessCriterionEvaluator.js';
+import {PermissionPolicy} from '../Security/PermissionPolicy.js';
 import {ToolExecutionRecorder} from './ToolExecutionRecorder.js';
 
 /**
@@ -57,14 +58,22 @@ export class ProcessRunner {
     protected readonly _idGenerator: IdGenerator;
 
     /**
+     * Optional permission policy enforced before executing.
+     * @member {PermissionPolicy|undefined}
+     */
+    protected readonly _policy: PermissionPolicy|undefined;
+
+    /**
      * @param {Adapter} adapter - Adapter used to execute the check action.
      * @param {Clock} clock - Injected clock.
      * @param {IdGenerator} idGenerator - Injected id source.
+     * @param {PermissionPolicy} [policy] - Optional permission ceiling enforced before running.
      */
-    public constructor(adapter: Adapter, clock: Clock, idGenerator: IdGenerator) {
+    public constructor(adapter: Adapter, clock: Clock, idGenerator: IdGenerator, policy?: PermissionPolicy) {
         this._adapter = adapter;
         this._clock = clock;
         this._idGenerator = idGenerator;
+        this._policy = policy;
     }
 
     /**
@@ -76,6 +85,11 @@ export class ProcessRunner {
      */
     public async run(check: Check, permissionTier: PermissionTier, cycleId?: string): Promise<ProcessRunResult> {
         const startedAt = this._clock.now();
+
+        if (this._policy !== undefined && !this._policy.allows(permissionTier)) {
+            return this._denied(check, permissionTier, startedAt, cycleId);
+        }
+
         const outcome = await this._adapter.execute(check.action);
         const endedAt = this._clock.now();
 
@@ -100,6 +114,33 @@ export class ProcessRunner {
         });
 
         return {status: status, execution: execution};
+    }
+
+    /**
+     * Record a permission-denied run as not_executable, without executing.
+     * @param {Check} check - The check that was denied.
+     * @param {PermissionTier} permissionTier - The tier that exceeded the policy.
+     * @param {string} startedAt - Start timestamp.
+     * @param {string} [cycleId] - Owning cycle id, if any.
+     * @returns {ProcessRunResult} A not_executable result and its record.
+     */
+    protected _denied(check: Check, permissionTier: PermissionTier, startedAt: string, cycleId?: string): ProcessRunResult {
+        const execution = ToolExecutionRecorder.record({
+            id: this._idGenerator.next('exec'),
+            adapter: this._adapter.kind,
+            permissionTier: permissionTier,
+            command: ProcessRunner._command(check),
+            status: CheckStatus.NotExecutable,
+            startedAt: startedAt,
+            endedAt: startedAt,
+            durationMs: 0,
+            stdout: '',
+            stderr: `permission_denied: ${permissionTier} exceeds the allowed tier`,
+            cycleId: cycleId,
+            checkId: check.id
+        });
+
+        return {status: CheckStatus.NotExecutable, execution: execution};
     }
 
     /**

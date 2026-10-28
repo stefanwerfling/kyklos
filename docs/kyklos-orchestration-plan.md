@@ -121,14 +121,23 @@ concrete alternative; it is never silently marked passed.
   malicious advisor claiming "mark everything passed" leaves a failed state Failed — the LLM cannot flip
   a result. Result reuse / parallelism of independent checks are later refinements.
 
-### N8 — Report/UI
-- Start with a deterministic machine-readable + HTML report of a cycle (status, checks, evidence,
-  deviations, decision, similar prior cases, open risks) with working links evidence↔analysis.
-  A richer interactive UI follows.
+### N8 — Report/UI  ✅ done (deterministic report, richer UI later)
+- `ReportBuilder` (machine-readable `CycleReport`: checks linked to their deviations, open risks) +
+  `HtmlReportRenderer` (self-contained HTML; all dynamic text HTML-escaped — untrusted content is data,
+  never markup; failing checks link to their deviation anchors) — `src/Report`.
+- **Acceptance (met, verified 2026-10-28):** builds a report, links checks↔deviations, renders HTML that
+  escapes a `<script>` payload, is deterministic; proven on a real cycle (12 checks, 1 deviation →
+  passed_with_deviations → approve, open risk listed). A richer interactive UI is a later milestone.
 
-### N9 — Security/audit hardening + E2E
-- Enforce `PermissionTier` on every adapter; treat repo/web/log content as untrusted data (never
-  instructions); destructive/production actions require explicit approval + a restore path; E2E tests.
+### N9 — Security/audit hardening + E2E  ✅ done (first pass)
+- `PermissionPolicy` (tier ceiling; `src/Security`) enforced in `ProcessRunner`: an action above the
+  ceiling is recorded `not_executable` without running — never silently passed or executed. Untrusted
+  content is treated as data (HTML escaping N8; adapter allow-lists; advisory-only LLM N7). An E2E test
+  runs discovery → engine → gatekeeping → report → render → release.
+- **Acceptance (met, verified 2026-10-28):** permission denial blocks a too-high tier; the full E2E chain
+  passes for a clean run (approve) and a failing run (reject with open risks); 166 tests green.
+- Follow-ups: destructive/production actions requiring an explicit approval + restore-path workflow,
+  and broader adapter-level tier declaration, remain to harden further.
 
 ## 5. Security & anti-false-success (cross-cutting, from day one)
 
