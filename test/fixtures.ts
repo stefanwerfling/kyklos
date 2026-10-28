@@ -112,7 +112,8 @@ export const makeToolExecution = (): ToolExecution => {
         stdout: 'ok',
         stderr: '',
         stdoutSha256: SHA,
-        stderrSha256: SHA
+        stderrSha256: SHA,
+        outputComplete: true
     };
 };
 

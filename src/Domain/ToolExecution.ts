@@ -28,7 +28,8 @@ export const ToolExecutionSchema = Vts.object({
     stdout: Vts.string({description: 'Truncated standard output for display'}),
     stderr: Vts.string({description: 'Truncated standard error for display'}),
     stdoutSha256: Sha256Schema,
-    stderrSha256: Sha256Schema
+    stderrSha256: Sha256Schema,
+    outputComplete: Vts.boolean({description: 'False when output exceeded the capture limit; the sha then covers only the captured portion'})
 }, {objectSchema: {strict: true}});
 
 /**

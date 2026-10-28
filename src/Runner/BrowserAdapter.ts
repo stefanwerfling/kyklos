@@ -67,6 +67,20 @@ const BrowserParamsSchema = Vts.object({
     url: Vts.string()
 }, {objectSchema: {strict: true}});
 
+const ALLOWED_SCHEMES = new Set<string>(['http:', 'https:']);
+
+/**
+ * Strict runtime schema for a browser inspection. Used to reject incomplete or
+ * malformed inspection data before it can be judged.
+ */
+export const BrowserInspectionSchema = Vts.object({
+    reachable: Vts.boolean(),
+    httpStatus: Vts.optional(Vts.number()),
+    title: Vts.optional(Vts.string()),
+    consoleErrors: Vts.array(Vts.string()),
+    failedRequests: Vts.array(Vts.string())
+}, {objectSchema: {strict: true}});
+
 /**
  * Adapter that runs a browser inspection via an injected driver.
  */
@@ -91,11 +105,19 @@ export class BrowserAdapter extends Adapter {
     protected readonly _driver: BrowserDriver|undefined;
 
     /**
-     * @param {BrowserDriver} [driver] - A real browser driver; without it, checks are not executable.
+     * Optional allow-list of permitted hostnames.
+     * @member {Set<string>|undefined}
      */
-    public constructor(driver?: BrowserDriver) {
+    protected readonly _allowedHosts: Set<string>|undefined;
+
+    /**
+     * @param {BrowserDriver} [driver] - A real browser driver; without it, checks are not executable.
+     * @param {string[]} [allowedHosts] - Optional hostname allow-list; when set, other hosts are refused.
+     */
+    public constructor(driver?: BrowserDriver, allowedHosts?: string[]) {
         super();
         this._driver = driver;
+        this._allowedHosts = allowedHosts === undefined ? undefined : new Set(allowedHosts);
     }
 
     /**
@@ -106,6 +128,12 @@ export class BrowserAdapter extends Adapter {
     public async execute(action: CheckAction): Promise<AdapterOutcome> {
         if (!BrowserParamsSchema.validate(action.params, [])) {
             return {executed: false, reason: 'invalid_params'};
+        }
+
+        const urlError = this._rejectUrl(action.params.url);
+
+        if (urlError !== undefined) {
+            return {executed: false, reason: urlError};
         }
 
         if (this._driver === undefined) {
@@ -125,6 +153,33 @@ export class BrowserAdapter extends Adapter {
         }
 
         return {executed: true, httpStatus: inspection.httpStatus, body: JSON.stringify(inspection)};
+    }
+
+    /**
+     * Validate the target URL: only http/https, and within the host allow-list
+     * when one is configured. Prevents browsing file:/data: and, when
+     * restricted, internal services.
+     * @param {string} url - The target URL.
+     * @returns {string|undefined} An error reason, or undefined when allowed.
+     */
+    protected _rejectUrl(url: string): string|undefined {
+        let parsed: URL;
+
+        try {
+            parsed = new URL(url);
+        } catch {
+            return 'invalid_url';
+        }
+
+        if (!ALLOWED_SCHEMES.has(parsed.protocol)) {
+            return `disallowed_url_scheme: ${parsed.protocol}`;
+        }
+
+        if (this._allowedHosts !== undefined && !this._allowedHosts.has(parsed.hostname)) {
+            return `host_not_allowed: ${parsed.hostname}`;
+        }
+
+        return undefined;
     }
 
     /**

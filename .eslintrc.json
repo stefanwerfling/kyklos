@@ -8,7 +8,8 @@
     "BufferEncoding": "readonly",
     "fetch": "readonly",
     "Response": "readonly",
-    "AbortSignal": "readonly"
+    "AbortSignal": "readonly",
+    "URL": "readonly"
   },
   "extends": [
     "eslint:all"

@@ -57,6 +57,13 @@ export interface AdapterOutcome {
      * @member {string|undefined}
      */
     reason?: string;
+
+    /**
+     * True when stdout/stderr exceeded the capture limit and the full output
+     * was not retained (so a hash covers only the captured portion).
+     * @member {boolean|undefined}
+     */
+    outputTruncated?: boolean;
 }
 
 /**

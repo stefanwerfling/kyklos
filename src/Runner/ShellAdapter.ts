@@ -14,6 +14,7 @@ import {Adapter} from './Adapter.js';
 import {AdapterOutcome} from './AdapterTypes.js';
 
 const DEFAULT_TIMEOUT_MS = 30000;
+const MAX_CAPTURE_BYTES = 1000000;
 
 const ShellParamsSchema = Vts.object({
     bin: Vts.string(),
@@ -104,13 +105,32 @@ export class ShellAdapter extends Adapter {
             const child = spawn(bin, args, {timeout: timeoutMs});
             let stdout = '';
             let stderr = '';
+            let truncated = false;
 
             child.stdout.on('data', (chunk: Buffer): void => {
-                stdout += chunk.toString('utf8');
+                if (stdout.length >= MAX_CAPTURE_BYTES) {
+                    truncated = true;
+                    return;
+                }
+
+                stdout += chunk.toString('utf8').slice(0, MAX_CAPTURE_BYTES - stdout.length);
+
+                if (stdout.length >= MAX_CAPTURE_BYTES) {
+                    truncated = true;
+                }
             });
 
             child.stderr.on('data', (chunk: Buffer): void => {
-                stderr += chunk.toString('utf8');
+                if (stderr.length >= MAX_CAPTURE_BYTES) {
+                    truncated = true;
+                    return;
+                }
+
+                stderr += chunk.toString('utf8').slice(0, MAX_CAPTURE_BYTES - stderr.length);
+
+                if (stderr.length >= MAX_CAPTURE_BYTES) {
+                    truncated = true;
+                }
             });
 
             child.on('error', (error: Error): void => {
@@ -119,11 +139,11 @@ export class ShellAdapter extends Adapter {
 
             child.on('close', (code: number|null, signal: NodeJS.Signals|null): void => {
                 if (code === null) {
-                    resolve({executed: false, reason: `timeout: ${signal ?? 'terminated'}`, stdout: stdout, stderr: stderr});
+                    resolve({executed: false, reason: `timeout: ${signal ?? 'terminated'}`, stdout: stdout, stderr: stderr, outputTruncated: truncated});
                     return;
                 }
 
-                resolve({executed: true, exitCode: code, stdout: stdout, stderr: stderr});
+                resolve({executed: true, exitCode: code, stdout: stdout, stderr: stderr, outputTruncated: truncated});
             });
         });
     }

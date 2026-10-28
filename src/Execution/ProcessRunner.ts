@@ -1,23 +1,27 @@
 /**
- * ProcessRunner — runs one CLI check and records a concrete ToolExecution.
+ * ProcessRunner — runs one check through the CheckRunner and records a concrete
+ * ToolExecution.
  *
- * It brackets the adapter call with the injected clock to measure duration,
- * maps the outcome to a check status (a non-executed run is not_executable,
- * never passed), and produces an append-only execution record every result can
- * be traced back to.
+ * Status comes solely from the CheckRunner (and its SuccessCriterionEvaluator),
+ * so there is no second status logic. The required permission tier is taken from
+ * the trusted action definition (not from the caller), enforced fail-closed by
+ * an optional policy: a denied action is recorded not_executable without running.
+ * Timing brackets the run via the injected clock.
  */
 import {Check} from '../Domain/Check.js';
 import {CheckStatus, PermissionTier} from '../Domain/Common.js';
 import {ToolExecution} from '../Domain/ToolExecution.js';
 import {Clock} from '../Cycle/Clock.js';
 import {IdGenerator} from '../Cycle/IdGenerator.js';
-import {Adapter} from '../Runner/Adapter.js';
-import {SuccessCriterionEvaluator} from '../Runner/SuccessCriterionEvaluator.js';
+import {AdapterOutcome, RunOptions} from '../Runner/AdapterTypes.js';
+import {CheckRunner} from '../Runner/CheckRunner.js';
 import {PermissionPolicy} from '../Security/PermissionPolicy.js';
 import {ToolExecutionRecorder} from './ToolExecutionRecorder.js';
 
+const DEFAULT_TIER = PermissionTier.TempTest;
+
 /**
- * The status plus the execution record of a single CLI run.
+ * The status plus the execution record of a single run.
  */
 export interface ProcessRunResult {
 
@@ -28,6 +32,18 @@ export interface ProcessRunResult {
     status: CheckStatus;
 
     /**
+     * The reason for the status.
+     * @member {string}
+     */
+    reason: string;
+
+    /**
+     * The raw adapter outcome, when the action was executed.
+     * @member {AdapterOutcome|undefined}
+     */
+    outcome?: AdapterOutcome;
+
+    /**
      * The concrete execution record.
      * @member {ToolExecution}
      */
@@ -35,15 +51,15 @@ export interface ProcessRunResult {
 }
 
 /**
- * Runs CLI checks and records their executions.
+ * Runs checks via the CheckRunner and records their executions.
  */
 export class ProcessRunner {
 
     /**
-     * Adapter that executes the command.
-     * @member {Adapter}
+     * The status authority.
+     * @member {CheckRunner}
      */
-    protected readonly _adapter: Adapter;
+    protected readonly _runner: CheckRunner;
 
     /**
      * Injected clock.
@@ -64,83 +80,82 @@ export class ProcessRunner {
     protected readonly _policy: PermissionPolicy|undefined;
 
     /**
-     * @param {Adapter} adapter - Adapter used to execute the check action.
+     * @param {CheckRunner} runner - The single status authority.
      * @param {Clock} clock - Injected clock.
      * @param {IdGenerator} idGenerator - Injected id source.
      * @param {PermissionPolicy} [policy] - Optional permission ceiling enforced before running.
      */
-    public constructor(adapter: Adapter, clock: Clock, idGenerator: IdGenerator, policy?: PermissionPolicy) {
-        this._adapter = adapter;
+    public constructor(runner: CheckRunner, clock: Clock, idGenerator: IdGenerator, policy?: PermissionPolicy) {
+        this._runner = runner;
         this._clock = clock;
         this._idGenerator = idGenerator;
         this._policy = policy;
     }
 
     /**
-     * Run a CLI check and record its execution.
+     * Run a check, enforce permissions, and record the execution.
      * @param {Check} check - The check to run.
-     * @param {PermissionTier} permissionTier - The tier the action acts at.
+     * @param {RunOptions} [options] - Skip / applicability controls.
      * @param {string} [cycleId] - Owning cycle id, if any.
-     * @returns {Promise<ProcessRunResult>} The status and execution record.
+     * @returns {Promise<ProcessRunResult>} The status, outcome and execution record.
      */
-    public async run(check: Check, permissionTier: PermissionTier, cycleId?: string): Promise<ProcessRunResult> {
+    public async run(check: Check, options?: RunOptions, cycleId?: string): Promise<ProcessRunResult> {
+        const tier = check.action.permissionTier ?? DEFAULT_TIER;
         const startedAt = this._clock.now();
 
-        if (this._policy !== undefined && !this._policy.allows(permissionTier)) {
-            return this._denied(check, permissionTier, startedAt, cycleId);
+        if (this._policy !== undefined && !this._policy.allows(tier)) {
+            return this._denied(check, tier, startedAt, cycleId);
         }
 
-        const outcome = await this._adapter.execute(check.action);
+        const result = await this._runner.run(check, options);
         const endedAt = this._clock.now();
-
-        const status = outcome.executed
-            ? SuccessCriterionEvaluator.evaluate(check.successCriterion, outcome).status
-            : CheckStatus.NotExecutable;
+        const outcome = result.outcome;
 
         const execution = ToolExecutionRecorder.record({
             id: this._idGenerator.next('exec'),
-            adapter: this._adapter.kind,
-            permissionTier: permissionTier,
+            adapter: check.action.adapter,
+            permissionTier: tier,
             command: ProcessRunner._command(check),
-            status: status,
-            exitCode: outcome.exitCode,
+            status: result.status,
+            exitCode: outcome?.exitCode,
             startedAt: startedAt,
             endedAt: endedAt,
             durationMs: ProcessRunner._durationMs(startedAt, endedAt),
-            stdout: outcome.stdout ?? '',
-            stderr: outcome.stderr ?? '',
+            stdout: outcome?.stdout ?? '',
+            stderr: outcome?.stderr ?? '',
+            outputTruncated: outcome?.outputTruncated,
             cycleId: cycleId,
             checkId: check.id
         });
 
-        return {status: status, execution: execution};
+        return {status: result.status, reason: result.reason, outcome: outcome, execution: execution};
     }
 
     /**
      * Record a permission-denied run as not_executable, without executing.
      * @param {Check} check - The check that was denied.
-     * @param {PermissionTier} permissionTier - The tier that exceeded the policy.
+     * @param {PermissionTier} tier - The required tier that exceeded the policy.
      * @param {string} startedAt - Start timestamp.
      * @param {string} [cycleId] - Owning cycle id, if any.
      * @returns {ProcessRunResult} A not_executable result and its record.
      */
-    protected _denied(check: Check, permissionTier: PermissionTier, startedAt: string, cycleId?: string): ProcessRunResult {
+    protected _denied(check: Check, tier: PermissionTier, startedAt: string, cycleId?: string): ProcessRunResult {
         const execution = ToolExecutionRecorder.record({
             id: this._idGenerator.next('exec'),
-            adapter: this._adapter.kind,
-            permissionTier: permissionTier,
+            adapter: check.action.adapter,
+            permissionTier: tier,
             command: ProcessRunner._command(check),
             status: CheckStatus.NotExecutable,
             startedAt: startedAt,
             endedAt: startedAt,
             durationMs: 0,
             stdout: '',
-            stderr: `permission_denied: ${permissionTier} exceeds the allowed tier`,
+            stderr: `permission_denied: ${tier} exceeds the allowed tier`,
             cycleId: cycleId,
             checkId: check.id
         });
 
-        return {status: CheckStatus.NotExecutable, execution: execution};
+        return {status: CheckStatus.NotExecutable, reason: `permission_denied: ${tier}`, execution: execution};
     }
 
     /**

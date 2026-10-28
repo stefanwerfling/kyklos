@@ -11,12 +11,17 @@ import {CheckStatus, Criticality, Severity} from '../Domain/Common.js';
 import {Checklist} from '../Domain/Checklist.js';
 import {Cycle, CycleSchema} from '../Domain/Cycle.js';
 import {Deviation, DeviationSchema} from '../Domain/Deviation.js';
+import {Evidence, EvidenceSchema} from '../Domain/Evidence.js';
 import {Observation, ObservationSchema} from '../Domain/Observation.js';
 import {Procedure} from '../Domain/Procedure.js';
 import {Project} from '../Domain/Project.js';
+import {ToolExecution, ToolExecutionSchema} from '../Domain/ToolExecution.js';
+import {EvidenceFactory} from '../Execution/EvidenceFactory.js';
+import {ProcessRunner} from '../Execution/ProcessRunner.js';
 import {CheckRunner} from '../Runner/CheckRunner.js';
 import {RunOptions} from '../Runner/AdapterTypes.js';
 import {SignatureBuilder} from '../Learning/SignatureBuilder.js';
+import {PermissionPolicy} from '../Security/PermissionPolicy.js';
 import {FileStore} from '../Store/FileStore.js';
 import {Clock} from './Clock.js';
 import {CheckStatusEntry, CycleStateResolver} from './CycleStateResolver.js';
@@ -50,6 +55,12 @@ export interface CycleEngineOptions {
      * @member {FileStore|undefined}
      */
     store?: FileStore;
+
+    /**
+     * Optional permission policy enforced on each action (fail-closed).
+     * @member {PermissionPolicy|undefined}
+     */
+    policy?: PermissionPolicy;
 }
 
 /**
@@ -104,18 +115,24 @@ export interface CycleRunResult {
      * @member {Deviation[]}
      */
     deviations: Deviation[];
+
+    /**
+     * The tool-execution records, one per check.
+     * @member {ToolExecution[]}
+     */
+    toolExecutions: ToolExecution[];
+
+    /**
+     * The evidence produced for the observations.
+     * @member {Evidence[]}
+     */
+    evidence: Evidence[];
 }
 
 /**
  * Executes checklists and produces auditable, append-only cycle records.
  */
 export class CycleEngine {
-
-    /**
-     * Runner used to execute checks.
-     * @member {CheckRunner}
-     */
-    protected readonly _runner: CheckRunner;
 
     /**
      * Injected id source.
@@ -136,13 +153,19 @@ export class CycleEngine {
     protected readonly _store: FileStore|undefined;
 
     /**
+     * Recording runner that enforces permissions and builds ToolExecutions.
+     * @member {ProcessRunner}
+     */
+    protected readonly _processRunner: ProcessRunner;
+
+    /**
      * @param {CycleEngineOptions} options - Engine collaborators.
      */
     public constructor(options: CycleEngineOptions) {
-        this._runner = options.runner;
         this._idGenerator = options.idGenerator;
         this._clock = options.clock;
         this._store = options.store;
+        this._processRunner = new ProcessRunner(options.runner, options.clock, options.idGenerator, options.policy);
     }
 
     /**
@@ -155,13 +178,19 @@ export class CycleEngine {
         const startedAt = this._clock.now();
         const observations: Observation[] = [];
         const deviations: Deviation[] = [];
+        const toolExecutions: ToolExecution[] = [];
+        const evidence: Evidence[] = [];
         const entries: CheckStatusEntry[] = [];
 
         for (const check of input.checklist.checks) {
             const options = input.runOptions?.[check.id];
             // sequential by design — checks may have ordering side effects
             // eslint-disable-next-line no-await-in-loop
-            const result = await this._runner.run(check, options);
+            const result = await this._processRunner.run(check, options, cycleId);
+            toolExecutions.push(result.execution);
+
+            const proof = EvidenceFactory.fromToolExecution(result.execution, this._idGenerator.next('ev'), this._clock.now());
+            evidence.push(proof);
 
             const observation: Observation = {
                 id: this._idGenerator.next('obs'),
@@ -170,7 +199,7 @@ export class CycleEngine {
                 status: result.status,
                 actual: result.outcome,
                 measuredAt: this._clock.now(),
-                evidenceIds: []
+                evidenceIds: [proof.id]
             };
             observations.push(observation);
             entries.push({status: result.status, criticality: check.criticality});
@@ -202,7 +231,7 @@ export class CycleEngine {
             deviationIds: deviations.map((deviation): string => deviation.id)
         };
 
-        const result: CycleRunResult = {cycle: cycle, observations: observations, deviations: deviations};
+        const result: CycleRunResult = {cycle: cycle, observations: observations, deviations: deviations, toolExecutions: toolExecutions, evidence: evidence};
         await this._persist(result);
         return result;
     }
@@ -231,6 +260,18 @@ export class CycleEngine {
     protected async _persist(result: CycleRunResult): Promise<void> {
         if (this._store === undefined) {
             return;
+        }
+
+        for (const execution of result.toolExecutions) {
+            // sequential by design — append-only writes
+            // eslint-disable-next-line no-await-in-loop
+            await this._store.appendRecord('toolExecution', ToolExecutionSchema, execution);
+        }
+
+        for (const proof of result.evidence) {
+            // sequential by design — append-only writes
+            // eslint-disable-next-line no-await-in-loop
+            await this._store.appendRecord('evidence', EvidenceSchema, proof);
         }
 
         for (const observation of result.observations) {

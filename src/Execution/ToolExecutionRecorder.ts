@@ -92,6 +92,12 @@ export interface ToolExecutionInput {
      * @member {string|undefined}
      */
     checkId?: string;
+
+    /**
+     * True when the captured output was bounded and is incomplete.
+     * @member {boolean|undefined}
+     */
+    outputTruncated?: boolean;
 }
 
 /**
@@ -120,7 +126,8 @@ export class ToolExecutionRecorder {
             stdout: ToolExecutionRecorder._truncate(input.stdout),
             stderr: ToolExecutionRecorder._truncate(input.stderr),
             stdoutSha256: Checksum.sha256Hex(input.stdout),
-            stderrSha256: Checksum.sha256Hex(input.stderr)
+            stderrSha256: Checksum.sha256Hex(input.stderr),
+            outputComplete: input.outputTruncated !== true
         };
     }
 

@@ -7,14 +7,17 @@
  * the adapter at execution time (M2), not by this structural schema.
  */
 import {ExtractSchemaResultType, Vts} from 'vts';
-import {AdapterKind, Criticality, IdSchema, OnFailure, VersionSchema} from './Common.js';
+import {AdapterKind, Criticality, IdSchema, OnFailure, PermissionTier, VersionSchema} from './Common.js';
 
 /**
- * Schema of CheckAction.
+ * Schema of CheckAction. `permissionTier` is the trusted required tier declared
+ * by the checklist definition — it is what permission enforcement checks, so a
+ * caller cannot under-declare an action's authority.
  */
 export const CheckActionSchema = Vts.object({
     adapter: Vts.enum(AdapterKind),
-    params: Vts.optional(Vts.unknown())
+    params: Vts.optional(Vts.unknown()),
+    permissionTier: Vts.optional(Vts.enum(PermissionTier))
 }, {objectSchema: {strict: true}});
 
 /**

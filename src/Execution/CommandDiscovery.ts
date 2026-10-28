@@ -7,7 +7,7 @@
  * a script that is not present simply yields no check.
  */
 import {Check} from '../Domain/Check.js';
-import {AdapterKind, Criticality, OnFailure} from '../Domain/Common.js';
+import {AdapterKind, Criticality, OnFailure, PermissionTier} from '../Domain/Common.js';
 
 /**
  * The subset of package.json that discovery reads.
@@ -68,7 +68,7 @@ export class CommandDiscovery {
             description: `npm run ${known.name}`,
             criticality: known.criticality,
             preconditions: [],
-            action: {adapter: AdapterKind.Shell, params: {bin: 'npm', args: ['run', known.name]}},
+            action: {adapter: AdapterKind.Shell, params: {bin: 'npm', args: ['run', known.name]}, permissionTier: PermissionTier.TempTest},
             successCriterion: {kind: 'exitZero'},
             expectedEvidence: ['stdout'],
             onFailure: known.criticality === Criticality.Critical ? OnFailure.Block : OnFailure.Warn

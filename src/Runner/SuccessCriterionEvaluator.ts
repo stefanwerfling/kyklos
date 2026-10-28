@@ -8,7 +8,7 @@ import {Vts} from 'vts';
 import {SuccessCriterion} from '../Domain/Check.js';
 import {CheckStatus} from '../Domain/Common.js';
 import {AdapterOutcome, EvaluationResult} from './AdapterTypes.js';
-import {BrowserInspection} from './BrowserAdapter.js';
+import {BrowserInspectionSchema} from './BrowserAdapter.js';
 
 const RegexParamsSchema = Vts.object({
     pattern: Vts.string(),
@@ -20,7 +20,12 @@ const HttpStatusParamsSchema = Vts.object({
 }, {objectSchema: {strict: true}});
 
 const BrowserHealthyParamsSchema = Vts.object({
-    expectTitle: Vts.optional(Vts.string())
+    expectTitle: Vts.optional(Vts.string()),
+    expectHttpStatus: Vts.optional(Vts.number())
+}, {objectSchema: {strict: true}});
+
+const DeviceDataSchema = Vts.object({
+    devices: Vts.array(Vts.string())
 }, {objectSchema: {strict: true}});
 
 /**
@@ -50,6 +55,8 @@ export class SuccessCriterionEvaluator {
                 return SuccessCriterionEvaluator._manualConfirm(outcome);
             case 'browserHealthy':
                 return SuccessCriterionEvaluator._browserHealthy(criterion, outcome);
+            case 'deviceAvailable':
+                return SuccessCriterionEvaluator._deviceAvailable(outcome);
             default:
                 return {status: CheckStatus.Unknown, reason: `unknown_criterion: ${criterion.kind}`};
         }
@@ -72,23 +79,31 @@ export class SuccessCriterionEvaluator {
             return {status: CheckStatus.Unknown, reason: 'no_browser_data'};
         }
 
-        let inspection: Partial<BrowserInspection>;
+        let parsed: unknown;
 
         try {
-            inspection = JSON.parse(outcome.body) as Partial<BrowserInspection>;
+            parsed = JSON.parse(outcome.body);
         } catch {
             return {status: CheckStatus.Unknown, reason: 'invalid_browser_data'};
         }
 
-        if (inspection.reachable !== true) {
+        // Strict: incomplete or wrong-typed inspection data is unknown, never passed.
+        if (!BrowserInspectionSchema.validate(parsed, [])) {
+            return {status: CheckStatus.Unknown, reason: 'incomplete_browser_data'};
+        }
+
+        const inspection = parsed;
+
+        if (!inspection.reachable) {
             return {status: CheckStatus.Failed, reason: 'unreachable'};
         }
 
-        const consoleErrors = Array.isArray(inspection.consoleErrors) ? inspection.consoleErrors : [];
-        const failedRequests = Array.isArray(inspection.failedRequests) ? inspection.failedRequests : [];
+        if (params.expectHttpStatus !== undefined && inspection.httpStatus !== params.expectHttpStatus) {
+            return {status: CheckStatus.Failed, reason: `http_status_mismatch: ${inspection.httpStatus ?? 'none'}`};
+        }
 
-        if (consoleErrors.length > 0 || failedRequests.length > 0) {
-            return {status: CheckStatus.Failed, reason: `browser_errors: ${consoleErrors.length} console, ${failedRequests.length} requests`};
+        if (inspection.consoleErrors.length > 0 || inspection.failedRequests.length > 0) {
+            return {status: CheckStatus.Failed, reason: `browser_errors: ${inspection.consoleErrors.length} console, ${inspection.failedRequests.length} requests`};
         }
 
         if (params.expectTitle !== undefined && inspection.title !== params.expectTitle) {
@@ -96,6 +111,34 @@ export class SuccessCriterionEvaluator {
         }
 
         return {status: CheckStatus.Passed, reason: 'browser_healthy'};
+    }
+
+    /**
+     * Judge device availability only. This confirms a device/emulator is
+     * present; it is NOT a passed app test or user flow.
+     * @param {AdapterOutcome} outcome - The outcome whose body lists devices.
+     * @returns {EvaluationResult} Passed when at least one device is present.
+     */
+    protected static _deviceAvailable(outcome: AdapterOutcome): EvaluationResult {
+        if (outcome.body === undefined) {
+            return {status: CheckStatus.Unknown, reason: 'no_device_data'};
+        }
+
+        let parsed: unknown;
+
+        try {
+            parsed = JSON.parse(outcome.body);
+        } catch {
+            return {status: CheckStatus.Unknown, reason: 'invalid_device_data'};
+        }
+
+        if (!DeviceDataSchema.validate(parsed, [])) {
+            return {status: CheckStatus.Unknown, reason: 'invalid_device_data'};
+        }
+
+        return parsed.devices.length > 0
+            ? {status: CheckStatus.Passed, reason: 'device_available (availability only, not an app test)'}
+            : {status: CheckStatus.Failed, reason: 'no_device'};
     }
 
     /**

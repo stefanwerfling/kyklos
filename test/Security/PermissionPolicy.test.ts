@@ -4,6 +4,7 @@ import {
     AdapterRegistry,
     type AdapterOutcome,
     type Check,
+    CheckRunner,
     CheckStatus,
     DryRunAdapter,
     PermissionPolicy,
@@ -24,23 +25,24 @@ describe('PermissionPolicy', () => {
     });
 });
 
-describe('ProcessRunner permission enforcement', () => {
+describe('ProcessRunner permission enforcement (trusted tier from the action)', () => {
     const alwaysPass = (): AdapterOutcome => {
         return {executed: true, exitCode: 0};
     };
-    const adapter = new DryRunAdapter(AdapterKind.Shell, alwaysPass);
-    const check: Check = {...makeCheck(), action: {adapter: AdapterKind.Shell, params: {bin: 'x'}}, successCriterion: {kind: 'exitZero'}};
+    const runner = new CheckRunner(new AdapterRegistry().register(new DryRunAdapter(AdapterKind.Shell, alwaysPass)));
+    const productionCheck: Check = {...makeCheck(), action: {adapter: AdapterKind.Shell, params: {bin: 'x'}, permissionTier: PermissionTier.Production}, successCriterion: {kind: 'exitZero'}};
+    const testCheck: Check = {...makeCheck(), action: {adapter: AdapterKind.Shell, params: {bin: 'x'}, permissionTier: PermissionTier.TempTest}, successCriterion: {kind: 'exitZero'}};
 
-    it('denies an action above the ceiling without executing it', async () => {
-        const runner = new ProcessRunner(adapter, new SystemClock(), new RandomIdGenerator(), new PermissionPolicy(PermissionTier.Read));
-        const result = await runner.run(check, PermissionTier.Production);
+    it('denies an action whose declared tier exceeds the ceiling, without executing it', async () => {
+        const processRunner = new ProcessRunner(runner, new SystemClock(), new RandomIdGenerator(), new PermissionPolicy(PermissionTier.Read));
+        const result = await processRunner.run(productionCheck);
         expect(result.status).toBe(CheckStatus.NotExecutable);
         expect(result.execution.stderr).toContain('permission_denied');
     });
 
     it('allows an action within the ceiling', async () => {
-        const runner = new ProcessRunner(adapter, new SystemClock(), new RandomIdGenerator(), new PermissionPolicy(PermissionTier.TempTest));
-        const result = await runner.run(check, PermissionTier.TempTest);
+        const processRunner = new ProcessRunner(runner, new SystemClock(), new RandomIdGenerator(), new PermissionPolicy(PermissionTier.TempTest));
+        const result = await processRunner.run(testCheck);
         expect(result.status).toBe(CheckStatus.Passed);
     });
 });

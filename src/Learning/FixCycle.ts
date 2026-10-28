@@ -101,6 +101,12 @@ export interface FixReport {
      * @member {string}
      */
     residualRisk: string;
+
+    /**
+     * Error message when reproduction, the fix, or re-verification threw.
+     * @member {string|undefined}
+     */
+    error?: string;
 }
 
 /**
@@ -121,9 +127,39 @@ export class FixCycle {
             ? await input.incidentRepository.findSimilar({signature: input.signature, classification: input.classification})
             : [];
 
-        await input.applyFix();
+        try {
+            await input.applyFix();
+        } catch (error: unknown) {
+            // The fix could not be applied; keep the original reproduction evidence intact.
+            const message = FixCycle._message(error);
+            return {
+                reproduced: reproduced,
+                reproducedStatus: reproduction.status,
+                priorIncidents: priorIncidents,
+                postFixStatus: reproduction.status,
+                resolved: false,
+                residualRisk: `fix_error: ${message}; the original failure is unchanged`,
+                error: message
+            };
+        }
 
-        const afterFix = await input.runner.run(input.check);
+        let afterFix;
+
+        try {
+            afterFix = await input.runner.run(input.check);
+        } catch (error: unknown) {
+            const message = FixCycle._message(error);
+            return {
+                reproduced: reproduced,
+                reproducedStatus: reproduction.status,
+                priorIncidents: priorIncidents,
+                postFixStatus: CheckStatus.Unknown,
+                resolved: false,
+                residualRisk: `reverify_error: ${message}; the fix could not be re-verified`,
+                error: message
+            };
+        }
+
         const resolved = reproduced && afterFix.status === CheckStatus.Passed;
 
         return {
@@ -134,6 +170,19 @@ export class FixCycle {
             resolved: resolved,
             residualRisk: FixCycle._residualRisk(reproduced, resolved, afterFix.status)
         };
+    }
+
+    /**
+     * Extract a message from an unknown thrown value.
+     * @param {unknown} error - The caught value.
+     * @returns {string} A message string.
+     */
+    protected static _message(error: unknown): string {
+        if (error instanceof Error) {
+            return error.message;
+        }
+
+        return String(error);
     }
 
     /**
