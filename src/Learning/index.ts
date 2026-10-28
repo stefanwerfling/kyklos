@@ -10,3 +10,4 @@ export * from './ProposalService.js';
 export * from './ChecklistAmender.js';
 export * from './LessonSanitizer.js';
 export * from './LessonTransfer.js';
+export * from './FixCycle.js';

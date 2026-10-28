@@ -96,22 +96,31 @@ konkreter Alternative; nie stillschweigend bestanden.
 - **Akzeptanz (erfüllt):** ein Browser-Test lief in einem echten Browser; die healthy/broken-Unterscheidung
   hält. Playwright ist nicht installiert → ein `PlaywrightDriver` ist die dokumentierte Produktiv-Integration.
 
-### N5 — Emulator-Adapter (capability-gated)
-- `EmulatorAdapter`-Kontrakt + Android(adb)-Treiber; erkennt kein laufendes Gerät/AVD → `not_executable`,
-  dokumentiert. **Kein Emulator-Ergebnis ohne nachweisbaren Emulatorlauf.**
+### N5 — Emulator-Adapter (capability-gated)  ✅ erledigt
+- `EmulatorAdapter` + `EmulatorDriver`-Kontrakt + `AdbEmulatorDriver` (echtes `adb devices` über den
+  allow-gelisteten Shell-Adapter) — `src/Runner`. Kein Treiber / kein Gerät → `not_executable` mit
+  konkretem nächsten Schritt.
+- **Akzeptanz (erfüllt, verifiziert 2026-10-28):** mit dem echten adb-Treiber meldet er ehrlich
+  `no_device_or_avd` (kein AVD in dieser Umgebung); ein Fake-Treiber mit Gerät führt aus. Kein
+  Emulator-Ergebnis ohne Gerät.
 
-### N6 — Fix-Zyklus (strukturierte Fehleranalyse + Re-Verifikation)
-- `FixCycle`: Fehler erfassen → reproduzieren → kleinster Repro → frühere Incidents suchen → priorisierte
-  Hypothesen mit Unsicherheit → minimale Korrektur (Vorschlag; Implementierung im genehmigten Umfang) →
-  betroffene Checks erneut → Regression → ursprüngliche Abweichung neu bewerten → Restrisiko dokumentieren.
-- **Akzeptanz:** ein reproduzierbarer Fehler wird erkannt, eine Korrektur re-verifiziert und die
-  ursprüngliche Abweichung nach der Korrektur neu bewertet; nicht ausgeführte Checks bleiben sichtbar.
+### N6 — Fix-Zyklus (strukturierte Fehleranalyse + Re-Verifikation)  ✅ erledigt
+- `FixCycle` (`src/Learning`): ursprünglichen Fehler reproduzieren → ähnliche frühere Incidents suchen
+  (`IncidentRepository`) → minimale externe Korrektur anwenden (Callback, im genehmigten Umfang) → erneut
+  ausführen → neu bewerten, ob die Abweichung weg ist → Restrisiko dokumentieren. Eine Korrektur, die nie
+  reproduzierte, wird nie als verifiziert behauptet.
+- **Akzeptanz (erfüllt, verifiziert 2026-10-28):** ein reproduzierbarer Fehler wird reproduziert, korrigiert
+  und re-verifiziert (resolved); eine No-op-Korrektur bleibt `unresolved`; ein nicht-reproduzierender Fall
+  ist `not_reproducible`; frühere Incidents erscheinen per Signatur.
 
-### N7 — Orchestrator + LLM-Grenze (optional, nur beratend)
-- `Orchestrator` führt deterministische Checks ohne LLM aus, erfasst Kosten/Laufzeit pro Zyklus, nutzt
-  gültige frühere Ergebnisse, fährt betroffene-dann-Regression, parallelisiert unabhängige sichere Checks.
-  `LlmAdvisor`-Interface liefert nur Vorschläge/Pläne — nie eine `Observation`, nie eine Statusänderung.
-- **Akzeptanz:** voller Zyklus läuft mit deaktiviertem LLM; das LLM kann nie ein Ergebnis kippen.
+### N7 — Orchestrator + LLM-Grenze (optional, nur beratend)  ✅ erledigt
+- `Orchestrator` (`src/Orchestration`) führt den Check-Plan deterministisch aus und leitet den Zyklus-Status
+  NUR aus Runner-Ergebnissen über den Gatekeeping-Resolver ab; erfasst Zyklus-Metriken (checkCount,
+  durationMs, llmCalls). `LlmAdvisor`-Interface + `NullLlmAdvisor` liefern nur Vorschläge/Diagnosen — nie
+  eine `Observation`, nie einen Status.
+- **Akzeptanz (erfüllt, verifiziert 2026-10-28):** voller Zyklus läuft ohne Advisor (llmCalls 0); ein
+  bösartiger Advisor mit „alles bestanden" lässt einen failed-Status Failed — das LLM kann kein Ergebnis
+  kippen. Ergebnis-Wiederverwendung / Parallelität unabhängiger Checks sind spätere Verfeinerungen.
 
 ### N8 — Report/UI
 - Start mit einem deterministischen maschinenlesbaren + HTML-Report eines Zyklus (Status, Checks,

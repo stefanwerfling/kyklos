@@ -95,22 +95,31 @@ concrete alternative; it is never silently marked passed.
 - **Acceptance (met):** a browser test ran in a real browser; the healthy/broken distinction holds.
   Playwright is not installed → a `PlaywrightDriver` is the documented production integration.
 
-### N5 — Emulator adapter (capability-gated)
-- `EmulatorAdapter` contract + Android(adb) driver; detects no running device/AVD → `not_executable`,
-  documented. **No emulator result is ever reported without a nachweisbarer emulator run.**
+### N5 — Emulator adapter (capability-gated)  ✅ done
+- `EmulatorAdapter` + `EmulatorDriver` contract + `AdbEmulatorDriver` (real `adb devices` via the
+  allow-listed shell adapter) — `src/Runner`. No driver / no device → `not_executable` with a concrete
+  next step.
+- **Acceptance (met, verified 2026-10-28):** with the real adb driver it honestly reports
+  `no_device_or_avd` (no AVD in this environment); a fake driver with a device executes. No emulator
+  result is ever reported without a device.
 
-### N6 — Fix cycle (structured error analysis + re-verification)
-- `FixCycle`: capture failure → reproduce → smallest repro → search prior incidents → ranked
-  hypotheses with uncertainty → minimal change (proposal; implementation stays in approved scope) →
-  re-run affected checks → regression → re-evaluate the original deviation → record residual risk.
-- **Acceptance:** a reproducible failure is detected, a fix is re-verified, and the original
-  deviation is re-evaluated after the fix; non-executed checks stay visible.
+### N6 — Fix cycle (structured error analysis + re-verification)  ✅ done
+- `FixCycle` (`src/Learning`): reproduce the original failure → search similar prior incidents
+  (`IncidentRepository`) → apply a minimal external change (callback, stays in approved scope) → re-run →
+  re-evaluate whether the original deviation is gone → record residual risk. A fix that never reproduced
+  is never claimed as verified.
+- **Acceptance (met, verified 2026-10-28):** a reproducible failure is reproduced, fixed and re-verified
+  (resolved); a no-op fix stays `unresolved`; a non-reproducing case is `not_reproducible`; prior
+  incidents surface by signature.
 
-### N7 — Orchestrator + LLM boundary (optional, advisory only)
-- `Orchestrator` runs deterministic checks with no LLM, records cost/runtime per cycle, reuses valid
-  prior results, runs affected-then-regression, parallelizes independent safe checks. `LlmAdvisor`
-  interface returns only suggestions/plans — it can never emit an `Observation` or change a status.
-- **Acceptance:** full cycle runs with the LLM disabled; the LLM can never flip a result.
+### N7 — Orchestrator + LLM boundary (optional, advisory only)  ✅ done
+- `Orchestrator` (`src/Orchestration`) runs the check plan deterministically and derives the cycle state
+  ONLY from runner results via the gatekeeping resolver; records per-cycle metrics (checkCount,
+  durationMs, llmCalls). `LlmAdvisor` interface + `NullLlmAdvisor` return suggestions/diagnoses only —
+  never an `Observation` or a status.
+- **Acceptance (met, verified 2026-10-28):** the full cycle runs with no advisor (llmCalls 0); a
+  malicious advisor claiming "mark everything passed" leaves a failed state Failed — the LLM cannot flip
+  a result. Result reuse / parallelism of independent checks are later refinements.
 
 ### N8 — Report/UI
 - Start with a deterministic machine-readable + HTML report of a cycle (status, checks, evidence,
