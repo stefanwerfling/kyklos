@@ -77,18 +77,24 @@ konkreter Alternative; nie stillschweigend bestanden.
   durationMs 1347, `source: tool_execution`). Makefile-Erkennung ist Folgeschritt. Volle CycleEngine-
   Integration der ToolExecution-Persistenz folgt später (N7).
 
-### N3 — Git-Adapter (nur lesend)
-- `GitAdapter` (status/describe/log/diff --stat), `permissionTier: read`.
-- **Akzeptanz:** echte Git-Fakten als `tool_execution`-Evidence erfasst.
+### N3 — Git-Adapter (nur lesend)  ✅ erledigt
+- `GitAdapter` (`src/Runner`): komponiert den Shell-Adapter (bin fix auf `git`), erlaubt nur lesende
+  Subkommandos (status/describe/log/diff/rev-parse/branch/show/remote/config/ls-files), verweigert
+  Schreibzugriffe; `permissionTier: read`.
+- **Akzeptanz (erfüllt, verifiziert 2026-10-28):** echtes `git rev-parse --abbrev-ref HEAD` läuft und
+  wird erfasst; ein Schreib-Subkommando (`commit`) ergibt `not_executable`.
 
-### N4 — Browser-Adapter
-- `BrowserAdapter`-Kontrakt + `PlaywrightDriver` hinter optionaler `playwright`-Abhängigkeit; fehlt sie
-  → `not_executable` mit "`npm i -D playwright`" als konkreter Alternative. Checks: zentraler
-  Benutzerablauf, DOM/sichtbarer Zustand, Konsolenfehler, fehlgeschlagene Requests, Screenshot-Nachweis.
-- Ein echter Browserlauf wird in dieser Session via claude-in-chrome-MCP gegen eine lokal
-  ausgelieferte Seite demonstriert und als Nachweis erfasst. **Nie einen nicht erfolgten Browserlauf behaupten.**
-- **Akzeptanz:** ein Browser-Test läuft tatsächlich in einem echten Browser, wo die Umgebung es trägt;
-  ein 200-Status allein gilt nie als Nachweis einer funktionierenden UI.
+### N4 — Browser-Adapter  ✅ erledigt (Library + echter Browser-Nachweis)
+- `BrowserAdapter` + `BrowserDriver`-Kontrakt + `BrowserInspection` (`src/Runner`); keine harte
+  Playwright-Abhängigkeit — Treiber injizieren, sonst `not_executable` mit "`npm i -D playwright`". Neues
+  `browserHealthy`-Kriterium: eine Seite besteht nur, wenn erreichbar, konsolenfehlerfrei, requestfehlerfrei
+  und Titel passt — ein 200 allein ist nie ein Pass.
+- **Echter Browser-Nachweis (diese Session):** lokale Seite ausgeliefert und **echtes Chromium** via
+  claude-in-chrome-MCP gesteuert — Titel/DOM/Konsole (0 Fehler) gelesen, Klick-Benutzerablauf ausgeführt
+  (`idle`→`clicked`, Konsole loggte den Klick), Screenshot erfasst. Diese echten Beobachtungen dann durch
+  `BrowserAdapter` + `browserHealthy` → passed; eine Konsolenfehler-Variante → failed.
+- **Akzeptanz (erfüllt):** ein Browser-Test lief in einem echten Browser; die healthy/broken-Unterscheidung
+  hält. Playwright ist nicht installiert → ein `PlaywrightDriver` ist die dokumentierte Produktiv-Integration.
 
 ### N5 — Emulator-Adapter (capability-gated)
 - `EmulatorAdapter`-Kontrakt + Android(adb)-Treiber; erkennt kein laufendes Gerät/AVD → `not_executable`,

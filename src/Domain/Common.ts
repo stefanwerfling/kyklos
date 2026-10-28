@@ -167,6 +167,9 @@ export enum AdapterKind {
     Manual = 'manual',
     Shell = 'shell',
     Http = 'http',
+    Git = 'git',
+    Browser = 'browser',
+    Emulator = 'emulator',
     Decision = 'decision'
 }
 

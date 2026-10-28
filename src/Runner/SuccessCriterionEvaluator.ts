@@ -8,6 +8,7 @@ import {Vts} from 'vts';
 import {SuccessCriterion} from '../Domain/Check.js';
 import {CheckStatus} from '../Domain/Common.js';
 import {AdapterOutcome, EvaluationResult} from './AdapterTypes.js';
+import {BrowserInspection} from './BrowserAdapter.js';
 
 const RegexParamsSchema = Vts.object({
     pattern: Vts.string(),
@@ -16,6 +17,10 @@ const RegexParamsSchema = Vts.object({
 
 const HttpStatusParamsSchema = Vts.object({
     equals: Vts.number()
+}, {objectSchema: {strict: true}});
+
+const BrowserHealthyParamsSchema = Vts.object({
+    expectTitle: Vts.optional(Vts.string())
 }, {objectSchema: {strict: true}});
 
 /**
@@ -43,9 +48,54 @@ export class SuccessCriterionEvaluator {
                 return SuccessCriterionEvaluator._httpStatus(criterion, outcome);
             case 'manualConfirm':
                 return SuccessCriterionEvaluator._manualConfirm(outcome);
+            case 'browserHealthy':
+                return SuccessCriterionEvaluator._browserHealthy(criterion, outcome);
             default:
                 return {status: CheckStatus.Unknown, reason: `unknown_criterion: ${criterion.kind}`};
         }
+    }
+
+    /**
+     * Judge a browser inspection carried in the outcome body.
+     * @param {SuccessCriterion} criterion - The criterion, optionally with an expected title.
+     * @param {AdapterOutcome} outcome - The outcome whose body holds the inspection JSON.
+     * @returns {EvaluationResult} Passed when reachable, error-free and the title matches.
+     */
+    protected static _browserHealthy(criterion: SuccessCriterion, outcome: AdapterOutcome): EvaluationResult {
+        const params = criterion.params ?? {};
+
+        if (!BrowserHealthyParamsSchema.validate(params, [])) {
+            return {status: CheckStatus.Unknown, reason: 'invalid_criterion_params'};
+        }
+
+        if (outcome.body === undefined) {
+            return {status: CheckStatus.Unknown, reason: 'no_browser_data'};
+        }
+
+        let inspection: Partial<BrowserInspection>;
+
+        try {
+            inspection = JSON.parse(outcome.body) as Partial<BrowserInspection>;
+        } catch {
+            return {status: CheckStatus.Unknown, reason: 'invalid_browser_data'};
+        }
+
+        if (inspection.reachable !== true) {
+            return {status: CheckStatus.Failed, reason: 'unreachable'};
+        }
+
+        const consoleErrors = Array.isArray(inspection.consoleErrors) ? inspection.consoleErrors : [];
+        const failedRequests = Array.isArray(inspection.failedRequests) ? inspection.failedRequests : [];
+
+        if (consoleErrors.length > 0 || failedRequests.length > 0) {
+            return {status: CheckStatus.Failed, reason: `browser_errors: ${consoleErrors.length} console, ${failedRequests.length} requests`};
+        }
+
+        if (params.expectTitle !== undefined && inspection.title !== params.expectTitle) {
+            return {status: CheckStatus.Failed, reason: `title_mismatch: ${inspection.title ?? 'none'}`};
+        }
+
+        return {status: CheckStatus.Passed, reason: 'browser_healthy'};
     }
 
     /**

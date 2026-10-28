@@ -76,18 +76,24 @@ concrete alternative; it is never silently marked passed.
   `source: tool_execution`). Makefile discovery is a follow-up. Full CycleEngine integration of
   ToolExecution persistence is a later step (N7).
 
-### N3 — Git adapter (read-only)
-- `GitAdapter` (status/describe/log/diff --stat), `permissionTier: read`.
-- **Acceptance:** real git facts captured as `tool_execution` evidence.
+### N3 — Git adapter (read-only)  ✅ done
+- `GitAdapter` (`src/Runner`): composes the shell adapter (bin pinned to `git`), allows only read
+  subcommands (status/describe/log/diff/rev-parse/branch/show/remote/config/ls-files), refuses writes;
+  `permissionTier: read`.
+- **Acceptance (met, verified 2026-10-28):** real `git rev-parse --abbrev-ref HEAD` runs and is
+  captured; a write subcommand (`commit`) yields `not_executable`.
 
-### N4 — Browser adapter
-- `BrowserAdapter` contract + `PlaywrightDriver` behind an optional `playwright` dependency; if
-  absent → `not_executable` with "`npm i -D playwright`" as the concrete alternative. Checks: core
-  user flow, DOM/visible state, console errors, failed requests, screenshot evidence.
-- A real browser run is demonstrated this session via the claude-in-chrome MCP against a locally
-  served page, recorded as evidence. **Never claim a browser run that did not happen.**
-- **Acceptance:** a browser test actually runs in a real browser where the environment supports it;
-  a 200 status alone is never accepted as proof of a working UI.
+### N4 — Browser adapter  ✅ done (library + real-browser proof)
+- `BrowserAdapter` + `BrowserDriver` contract + `BrowserInspection` (`src/Runner`); no hard Playwright
+  dependency — inject a driver, else `not_executable` with "`npm i -D playwright`". New `browserHealthy`
+  success criterion: a page passes only if reachable, console-error-free, request-error-free and the
+  title matches — a 200 alone is never a pass.
+- **Real browser proof (this session):** served a local page and drove **real Chromium** via the
+  claude-in-chrome MCP — read title/DOM/console (0 errors), executed the click user-flow (`idle`→`clicked`,
+  console logged the click), screenshot captured. Those real observations were then run back through
+  `BrowserAdapter` + `browserHealthy` → passed; a console-error variant → failed.
+- **Acceptance (met):** a browser test ran in a real browser; the healthy/broken distinction holds.
+  Playwright is not installed → a `PlaywrightDriver` is the documented production integration.
 
 ### N5 — Emulator adapter (capability-gated)
 - `EmulatorAdapter` contract + Android(adb) driver; detects no running device/AVD → `not_executable`,
