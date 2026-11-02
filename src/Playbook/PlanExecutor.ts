@@ -10,6 +10,7 @@
  * links back to the cycle via cycleId, so audit can answer which playbook,
  * version and sources produced each check.
  */
+import {Check} from '../Domain/Check.js';
 import {Checklist} from '../Domain/Checklist.js';
 import {ExecutionPlan, ExecutionPlanSchema} from '../Domain/ExecutionPlan.js';
 import {Procedure} from '../Domain/Procedure.js';
@@ -45,6 +46,7 @@ export interface PlanRunInput {
     root: RootRef;
     runOptions?: Record<string, RunOptions>;
     confirmations?: Record<string, boolean>;
+    confirm?: (check: Check) => Promise<boolean>;
 }
 
 /**
@@ -115,7 +117,7 @@ export class PlanExecutor {
         let cycle: CycleRunResult|undefined;
 
         if (runnable) {
-            cycle = await this._engine.run({project: input.project, procedure: PlanExecutor._procedure(input.root), checklist: PlanExecutor._checklist(input.root, compilation.compiledChecks), runOptions: input.runOptions, confirmations: input.confirmations});
+            cycle = await this._engine.run({project: input.project, procedure: PlanExecutor._procedure(input.root), checklist: PlanExecutor._checklist(input.root, compilation.compiledChecks), runOptions: input.runOptions, confirmations: input.confirmations, confirm: input.confirm});
         }
 
         const plan: ExecutionPlan = {

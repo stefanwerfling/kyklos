@@ -101,6 +101,16 @@ export interface RunCycleInput {
      * @member {Record<string, boolean>|undefined}
      */
     confirmations?: Record<string, boolean>;
+
+    /**
+     * Interactive confirmation for a manual check that is ready but not yet
+     * confirmed. Called in order during the single run pass, so one command can
+     * execute the automatable checks and ask the operator at each manual step.
+     * The caller records attribution (a ManualConfirmation) and returns whether
+     * it was confirmed.
+     * @member {((check: Check) => Promise<boolean>)|undefined}
+     */
+    confirm?: (check: Check) => Promise<boolean>;
 }
 
 /**
@@ -196,11 +206,14 @@ export class CycleEngine {
         for (const check of input.checklist.checks) {
             const base = input.runOptions?.[check.id];
             const precondsOk = PreconditionEvaluator.satisfied(check.preconditions, statuses);
-            const options: RunOptions = {...base, applicable: (base?.applicable ?? true) && precondsOk};
-            const effectiveCheck = CycleEngine._confirmed(check, input.confirmations?.[check.id] === true);
+            const applicable = (base?.applicable ?? true) && precondsOk;
+            const options: RunOptions = {...base, applicable: applicable};
+            // sequential by design — a ready manual step may need an interactive answer
+            // eslint-disable-next-line no-await-in-loop
+            const confirmed = await this._confirmValue(check, applicable, input);
             // sequential by design — checks may have ordering side effects
             // eslint-disable-next-line no-await-in-loop
-            const result = await this._processRunner.run(effectiveCheck, options, cycleId);
+            const result = await this._processRunner.run(CycleEngine._confirmed(check, confirmed), options, cycleId);
             statuses.set(check.id, result.status);
             toolExecutions.push(result.execution);
 
@@ -249,6 +262,26 @@ export class CycleEngine {
         const result: CycleRunResult = {cycle: cycle, observations: observations, deviations: deviations, toolExecutions: toolExecutions, evidence: evidence};
         await this._persist(result);
         return result;
+    }
+
+    /**
+     * Resolve a check's confirmation: a pre-seeded confirmation wins; otherwise a
+     * ready manual check is confirmed interactively via the optional callback.
+     * @param {Check} check - The check about to run.
+     * @param {boolean} applicable - Whether the check's preconditions are met.
+     * @param {RunCycleInput} input - The run input (confirmations + confirm callback).
+     * @returns {Promise<boolean>} Whether the check is confirmed.
+     */
+    protected async _confirmValue(check: Check, applicable: boolean, input: RunCycleInput): Promise<boolean> {
+        if (input.confirmations?.[check.id] === true) {
+            return true;
+        }
+
+        if (applicable && check.action.adapter === AdapterKind.Manual && input.confirm !== undefined) {
+            return input.confirm(check);
+        }
+
+        return false;
     }
 
     /**

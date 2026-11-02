@@ -103,6 +103,37 @@ describe('CycleEngine', () => {
         expect(confirmed.cycle.state).toBe(CycleState.Passed);
     });
 
+    it('confirms a ready manual check via the interactive callback', async () => {
+        const checklist = checklistOf([check('c1', 'critical', manualUnanswered, 'manualConfirm')]);
+        const asked: string[] = [];
+        const confirm = async (chk: Check): Promise<boolean> => {
+            asked.push(chk.id);
+            return true;
+        };
+        const result = await newEngine().run({project: makeProject(), procedure: makeProcedure(), checklist: checklist, confirm: confirm});
+        expect(result.cycle.state).toBe(CycleState.Passed);
+        expect(asked).toEqual(['c1']);
+    });
+
+    it('a declined manual check holds for release', async () => {
+        const checklist = checklistOf([check('c1', 'critical', manualUnanswered, 'manualConfirm')]);
+        const result = await newEngine().run({project: makeProject(), procedure: makeProcedure(), checklist: checklist, confirm: async (): Promise<boolean> => false});
+        expect(result.cycle.state).toBe(CycleState.ManualReleaseRequired);
+    });
+
+    it('never asks for a manual check whose preconditions are unmet', async () => {
+        const checklist = checklistOf([
+            check('c1', 'critical', shellFalse, 'exitZero'),
+            {...check('c2', 'critical', manualUnanswered, 'manualConfirm'), preconditions: ['c1==passed']}
+        ]);
+        const asked: string[] = [];
+        await newEngine().run({project: makeProject(), procedure: makeProcedure(), checklist: checklist, confirm: async (chk: Check): Promise<boolean> => {
+            asked.push(chk.id);
+            return true;
+        }});
+        expect(asked).toEqual([]);
+    });
+
     it('persists the cycle and reads it back identically', async () => {
         const store = new FileStore(root);
         const checklist = checklistOf([check('c1', 'critical', printfOk, 'exitZero')]);

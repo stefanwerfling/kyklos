@@ -9,6 +9,7 @@
  * naturally executes the automatable checks and halts at the first step that
  * needs a human. The deterministic core is unchanged; this only composes it.
  */
+import {Check} from '../Domain/Check.js';
 import {Clock} from '../Cycle/Clock.js';
 import {CycleEngine} from '../Cycle/CycleEngine.js';
 import {IdGenerator} from '../Cycle/IdGenerator.js';
@@ -46,6 +47,7 @@ export interface RealRunInput {
     target: TargetSystem;
     root: RootRef;
     confirmations?: Record<string, boolean>;
+    confirm?: (check: Check) => Promise<boolean>;
 }
 
 /**
@@ -77,7 +79,7 @@ export class RealRunner {
      * @returns {Promise<PlanRunResult>} The execution plan and the cycle.
      */
     public async run(input: RealRunInput): Promise<PlanRunResult> {
-        return this._executor.run({project: input.project, target: input.target, root: input.root, confirmations: input.confirmations});
+        return this._executor.run({project: input.project, target: input.target, root: input.root, confirmations: input.confirmations, confirm: input.confirm});
     }
 
 }

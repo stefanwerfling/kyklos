@@ -21,6 +21,7 @@
  */
 import {existsSync, readFileSync, readdirSync} from 'node:fs';
 import {dirname, join, resolve} from 'node:path';
+import {createInterface} from 'node:readline';
 import {fileURLToPath} from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -103,79 +104,90 @@ if (command === 'dry-run') {
     process.exit(0);
 }
 
-if (command === 'confirm') {
-    const checkId = argv[1];
-    const by = flag('--by', undefined);
-    if (checkId === undefined || checkId.startsWith('--') || by === undefined) {
-        die('usage: kyklos confirm <checkId> --by <who> [--note "<text>"] [--store <dir>]');
+const printResult = (result) => {
+    console.log('progress:');
+    for (const observation of result.cycle.observations) {
+        console.log(`  ${ICON[observation.status] ?? '?'} ${observation.status.padEnd(16)} ${observation.checkId}`);
     }
-    const store = new FileStore(resolveStore());
-    await store.appendRecord('manualConfirmation', ManualConfirmationSchema, {
-        id: new RandomIdGenerator().next('mconf'),
-        checkId: checkId,
-        confirmedBy: by,
-        note: flag('--note', undefined),
-        confirmedAt: new SystemClock().now()
-    });
-    console.log(`✓ confirmed '${checkId}' by ${by}. Run 'kyklos guide' to continue.`);
+    const decision = gate(result.cycle.cycle);
+    console.log(`\ncycle: ${result.cycle.cycle.state}   gate: ${decision.outcome} — ${decision.rationale}`);
+};
+
+if (command === 'play') {
+    if (process.stdin.isTTY !== true) {
+        die('play is interactive and needs a terminal. For non-interactive / CI use: kyklos run --confirm <file>');
+    }
+    const storeDir = resolveStore();
+    const manifest = JSON.parse(readFileSync(resolveManifest(storeDir), 'utf8'));
+    const env = loadEnv(resolveEnvFile(storeDir));
+    Object.assign(process.env, env);
+
+    const store = new FileStore(storeDir);
+    const idGenerator = new RandomIdGenerator();
+    const clock = new SystemClock();
+    const by = flag('--by', 'operator');
+
+    // Already-confirmed steps (from a prior, interrupted run) pass without asking.
+    const confirmations = await readConfirmationsFromStore(store);
+    const rl = createInterface({input: process.stdin, output: process.stdout});
+    const ask = (question) => new Promise((done) => rl.question(question, done));
+
+    // Interactive confirmation for each ready, not-yet-confirmed manual step.
+    const confirm = async (check) => {
+        const prompt = check.action?.params?.prompt;
+        console.log(`\n→ manual step [${check.id}]: ${typeof prompt === 'string' && prompt.length > 0 ? prompt : check.description}`);
+        const answer = (await ask('  done? [y/N] ')).trim().toLowerCase();
+        if (answer !== 'y' && answer !== 'j') {
+            return false;
+        }
+        const note = (await ask('  note (what you did): ')).trim();
+        await store.appendRecord('manualConfirmation', ManualConfirmationSchema, {id: idGenerator.next('mconf'), checkId: check.id, confirmedBy: by, note: note.length > 0 ? note : undefined, confirmedAt: clock.now()});
+        return true;
+    };
+
+    const runner = new RealRunner({store: store, idGenerator: idGenerator, clock: clock, env: env, allowlist: manifest.allowlist ?? []});
+    const result = await runner.run({project: manifest.project, target: manifest.target, root: manifest.root, confirmations: confirmations, confirm: confirm});
+    rl.close();
+
+    if (result.cycle === undefined) {
+        die('not runnable — resolution/compilation failed');
+    }
+    console.log('');
+    printResult(result);
     process.exit(0);
 }
 
-if (command === 'run' || command === 'guide') {
+if (command === 'run') {
     const storeDir = resolveStore();
     const manifest = JSON.parse(readFileSync(resolveManifest(storeDir), 'utf8'));
-    const envFile = resolveEnvFile(storeDir);
-    const env = loadEnv(envFile);
+    const env = loadEnv(resolveEnvFile(storeDir));
     Object.assign(process.env, env);
 
     const store = new FileStore(storeDir);
     const idGenerator = new RandomIdGenerator();
     const clock = new SystemClock();
 
-    const confirmations = command === 'guide' ? await readConfirmationsFromStore(store) : {};
-    if (command === 'run') {
-        const confirmFile = flag('--confirm', undefined);
-        if (confirmFile !== undefined) {
-            const entries = JSON.parse(readFileSync(resolve(confirmFile), 'utf8'));
-            for (const [checkId, entry] of Object.entries(entries)) {
-                await store.appendRecord('manualConfirmation', ManualConfirmationSchema, {id: idGenerator.next('mconf'), checkId: checkId, confirmedBy: entry.confirmedBy, note: entry.note, confirmedAt: clock.now()});
-                confirmations[checkId] = true;
-            }
+    const confirmations = await readConfirmationsFromStore(store);
+    const confirmFile = flag('--confirm', undefined);
+    if (confirmFile !== undefined) {
+        const entries = JSON.parse(readFileSync(resolve(confirmFile), 'utf8'));
+        for (const [checkId, entry] of Object.entries(entries)) {
+            await store.appendRecord('manualConfirmation', ManualConfirmationSchema, {id: idGenerator.next('mconf'), checkId: checkId, confirmedBy: entry.confirmedBy, note: entry.note, confirmedAt: clock.now()});
+            confirmations[checkId] = true;
         }
     }
 
     const runner = new RealRunner({store: store, idGenerator: idGenerator, clock: clock, env: env, allowlist: manifest.allowlist ?? []});
     const result = await runner.run({project: manifest.project, target: manifest.target, root: manifest.root, confirmations: confirmations});
-
     if (result.cycle === undefined) {
         die('not runnable — resolution/compilation failed');
     }
-
-    console.log('progress:');
-    for (const observation of result.cycle.observations) {
-        console.log(`  ${ICON[observation.status] ?? '?'} ${observation.status.padEnd(16)} ${observation.checkId}`);
-    }
-
-    if (command === 'guide') {
-        const describe = {};
-        for (const check of result.plan.compiledChecks) {
-            const prompt = check.action?.params?.prompt;
-            describe[check.id] = typeof prompt === 'string' && prompt.length > 0 ? prompt : check.description;
-        }
-        const next = result.cycle.observations.filter((observation) => observation.status === 'unknown');
-        if (next.length > 0) {
-            console.log('\nNEXT — do by hand, then confirm each:');
-            for (const observation of next) {
-                console.log(`\n  [${observation.checkId}] ${describe[observation.checkId] ?? ''}`);
-                console.log(`    kyklos confirm ${observation.checkId} --by <you> --note "<what you did>"`);
-            }
-        }
-    }
-
-    const decision = gate(result.cycle.cycle);
-    console.log(`\ncycle: ${result.cycle.cycle.state}   gate: ${decision.outcome} — ${decision.rationale}`);
+    printResult(result);
     process.exit(0);
 }
 
-console.log('kyklos <dry-run|run|guide|confirm> [options]  (run from a folder with a .kyklos store)');
+console.log('kyklos <play|run|dry-run> [--store <dir>] [--manifest <file>] [--env <file>]');
+console.log('  play     run interactively — auto-runs checks, asks you at each manual step, resumes if interrupted');
+console.log('  run      non-interactive (CI); confirmations via --confirm <file>');
+console.log('  dry-run  simulate every adapter; no side effects');
 process.exit(command === 'help' || command === undefined ? 0 : 2);
