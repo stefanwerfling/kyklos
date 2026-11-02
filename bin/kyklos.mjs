@@ -4,20 +4,20 @@
  *
  * Install once (`npm link` in the kyklos repo), then run `kyklos <command>`
  * from inside a project that has a .kyklos store. Paths default to the current
- * working directory, so from a project folder you just run `kyklos guide`.
+ * working directory, so from a project folder you just run `kyklos play`.
  *
  * Commands:
- *   kyklos dry-run [--store <dir>] [--manifest <file>]
- *       Simulate every adapter; prove the whole order/gating without side effects.
- *   kyklos run     [--store <dir>] [--manifest <file>] [--env <file>] [--confirm <file>]
- *       Real run with allow-listed adapters and ${VAR} resolved from the .env.
- *   kyklos guide   [--store <dir>] [--manifest <file>] [--env <file>]
- *       Guided, resumable: show progress + the next step to do by hand.
- *   kyklos confirm <checkId> --by <who> [--note "<text>"] [--store <dir>]
- *       Record an attributed confirmation for a manual step.
+ *   kyklos play    [--store <dir>] [--manifest <file>] [--env <file>] [--lang en|de]
+ *       Interactive: auto-run the checks, ask at each manual step, resume if
+ *       interrupted. Needs a terminal.
+ *   kyklos run     [--store <dir>] [--manifest <file>] [--env <file>] [--confirm <file>] [--lang en|de]
+ *       Non-interactive (CI). Confirmations via --confirm <file>.
+ *   kyklos dry-run [--store <dir>] [--manifest <file>] [--lang en|de]
+ *       Simulate every adapter; no side effects.
  *
  * Defaults: --store ./.kyklos ; --manifest the single *.run.json in the store ;
- * --env <store>/.env when present.
+ * --env <store>/.env when present ; --lang en. Output labels follow --lang; the
+ * step instructions follow the language of the playbook definitions.
  */
 import {existsSync, readFileSync, readdirSync} from 'node:fs';
 import {dirname, join, resolve} from 'node:path';
@@ -35,6 +35,35 @@ const flag = (name, fallback) => {
     const at = argv.indexOf(name);
     return at >= 0 && argv[at + 1] !== undefined ? argv[at + 1] : fallback;
 };
+
+const lang = flag('--lang', 'en') === 'de' ? 'de' : 'en';
+
+const MESSAGES = {
+    en: {
+        progress: 'progress:', manualStep: 'manual step', donePrompt: '  done? [y/N] ', notePrompt: '  note (what you did): ',
+        cycle: 'cycle', gate: 'gate', checks: 'checks', compiled: 'compiled',
+        notRunnable: 'not runnable — resolution/compilation failed',
+        needsTty: 'play is interactive and needs a terminal. For non-interactive / CI use: kyklos run --confirm <file>',
+        usage: 'kyklos <play|run|dry-run> [--store <dir>] [--manifest <file>] [--env <file>] [--lang en|de]',
+        playHelp: '  play     interactive — auto-runs checks, asks at each manual step, resumes if interrupted',
+        runHelp: '  run      non-interactive (CI); confirmations via --confirm <file>',
+        dryHelp: '  dry-run  simulate every adapter; no side effects',
+        status: {}, outcome: {}
+    },
+    de: {
+        progress: 'Fortschritt:', manualStep: 'manueller Schritt', donePrompt: '  erledigt? [j/N] ', notePrompt: '  Notiz (was du getan hast): ',
+        cycle: 'Zyklus', gate: 'Gate', checks: 'Checks', compiled: 'kompiliert',
+        notRunnable: 'nicht ausführbar — Auflösung/Kompilierung fehlgeschlagen',
+        needsTty: 'play ist interaktiv und braucht ein Terminal. Für nicht-interaktiv / CI: kyklos run --confirm <datei>',
+        usage: 'kyklos <play|run|dry-run> [--store <dir>] [--manifest <file>] [--env <file>] [--lang en|de]',
+        playHelp: '  play     interaktiv — führt Checks aus, fragt bei jedem manuellen Schritt, setzt nach Unterbrechung fort',
+        runHelp: '  run      nicht-interaktiv (CI); Bestätigungen über --confirm <datei>',
+        dryHelp: '  dry-run  simuliert jeden Adapter; keine Seiteneffekte',
+        status: {passed: 'bestanden', failed: 'fehlgeschlagen', unknown: 'offen', not_applicable: 'nicht zutreffend', skipped: 'übersprungen', not_executable: 'nicht ausführbar'},
+        outcome: {approve: 'freigegeben', reject: 'abgelehnt', manual_release_required: 'manuelle Freigabe nötig'}
+    }
+};
+const L = MESSAGES[lang];
 
 const die = (message) => {
     console.error(message);
@@ -83,7 +112,8 @@ const loadEnv = (path) => {
 };
 
 const ICON = {passed: '✓', failed: '✗', unknown: '→', not_applicable: '⧸', skipped: '·', not_executable: '✗'};
-
+const statusWord = (status) => L.status[status] ?? status;
+const outcomeWord = (outcome) => L.outcome[outcome] ?? outcome;
 const gate = (cycle) => ReleaseGate.decide({cycle: cycle, ruleVersion: '1.0.0', decidedBy: 'kyklos-cli', idGenerator: new RandomIdGenerator(), clock: new SystemClock()});
 
 const readConfirmationsFromStore = async (store) => {
@@ -91,31 +121,31 @@ const readConfirmationsFromStore = async (store) => {
     return Object.fromEntries(records.map((record) => [record.checkId, true]));
 };
 
+const printResult = (result) => {
+    console.log(L.progress);
+    for (const observation of result.cycle.observations) {
+        console.log(`  ${ICON[observation.status] ?? '?'} ${statusWord(observation.status).padEnd(18)} ${observation.checkId}`);
+    }
+    const decision = gate(result.cycle.cycle);
+    console.log(`\n${L.cycle}: ${statusWord(result.cycle.cycle.state)}   ${L.gate}: ${outcomeWord(decision.outcome)} — ${decision.rationale}`);
+};
+
 if (command === 'dry-run') {
     const storeDir = resolveStore();
     const manifest = JSON.parse(readFileSync(resolveManifest(storeDir), 'utf8'));
     const runner = new DryRunner({store: new FileStore(storeDir), idGenerator: new RandomIdGenerator(), clock: new SystemClock()});
     const result = await runner.run({project: manifest.project, target: manifest.target, root: manifest.root});
-    console.log(`checks: ${result.plan.compiledChecks.length} compiled`);
+    console.log(`${L.checks}: ${result.plan.compiledChecks.length} ${L.compiled}`);
     if (result.cycle === undefined) {
-        die('not runnable — resolution/compilation failed');
+        die(L.notRunnable);
     }
-    console.log(`cycle: ${result.cycle.cycle.state}   gate: ${gate(result.cycle.cycle).outcome}`);
+    console.log(`${L.cycle}: ${statusWord(result.cycle.cycle.state)}   ${L.gate}: ${outcomeWord(gate(result.cycle.cycle).outcome)}`);
     process.exit(0);
 }
 
-const printResult = (result) => {
-    console.log('progress:');
-    for (const observation of result.cycle.observations) {
-        console.log(`  ${ICON[observation.status] ?? '?'} ${observation.status.padEnd(16)} ${observation.checkId}`);
-    }
-    const decision = gate(result.cycle.cycle);
-    console.log(`\ncycle: ${result.cycle.cycle.state}   gate: ${decision.outcome} — ${decision.rationale}`);
-};
-
 if (command === 'play') {
     if (process.stdin.isTTY !== true) {
-        die('play is interactive and needs a terminal. For non-interactive / CI use: kyklos run --confirm <file>');
+        die(L.needsTty);
     }
     const storeDir = resolveStore();
     const manifest = JSON.parse(readFileSync(resolveManifest(storeDir), 'utf8'));
@@ -127,20 +157,18 @@ if (command === 'play') {
     const clock = new SystemClock();
     const by = flag('--by', 'operator');
 
-    // Already-confirmed steps (from a prior, interrupted run) pass without asking.
     const confirmations = await readConfirmationsFromStore(store);
     const rl = createInterface({input: process.stdin, output: process.stdout});
     const ask = (question) => new Promise((done) => rl.question(question, done));
 
-    // Interactive confirmation for each ready, not-yet-confirmed manual step.
     const confirm = async (check) => {
         const prompt = check.action?.params?.prompt;
-        console.log(`\n→ manual step [${check.id}]: ${typeof prompt === 'string' && prompt.length > 0 ? prompt : check.description}`);
-        const answer = (await ask('  done? [y/N] ')).trim().toLowerCase();
+        console.log(`\n→ ${L.manualStep} [${check.id}]: ${typeof prompt === 'string' && prompt.length > 0 ? prompt : check.description}`);
+        const answer = (await ask(L.donePrompt)).trim().toLowerCase();
         if (answer !== 'y' && answer !== 'j') {
             return false;
         }
-        const note = (await ask('  note (what you did): ')).trim();
+        const note = (await ask(L.notePrompt)).trim();
         await store.appendRecord('manualConfirmation', ManualConfirmationSchema, {id: idGenerator.next('mconf'), checkId: check.id, confirmedBy: by, note: note.length > 0 ? note : undefined, confirmedAt: clock.now()});
         return true;
     };
@@ -150,7 +178,7 @@ if (command === 'play') {
     rl.close();
 
     if (result.cycle === undefined) {
-        die('not runnable — resolution/compilation failed');
+        die(L.notRunnable);
     }
     console.log('');
     printResult(result);
@@ -180,14 +208,14 @@ if (command === 'run') {
     const runner = new RealRunner({store: store, idGenerator: idGenerator, clock: clock, env: env, allowlist: manifest.allowlist ?? []});
     const result = await runner.run({project: manifest.project, target: manifest.target, root: manifest.root, confirmations: confirmations});
     if (result.cycle === undefined) {
-        die('not runnable — resolution/compilation failed');
+        die(L.notRunnable);
     }
     printResult(result);
     process.exit(0);
 }
 
-console.log('kyklos <play|run|dry-run> [--store <dir>] [--manifest <file>] [--env <file>]');
-console.log('  play     run interactively — auto-runs checks, asks you at each manual step, resumes if interrupted');
-console.log('  run      non-interactive (CI); confirmations via --confirm <file>');
-console.log('  dry-run  simulate every adapter; no side effects');
+console.log(L.usage);
+console.log(L.playHelp);
+console.log(L.runHelp);
+console.log(L.dryHelp);
 process.exit(command === 'help' || command === undefined ? 0 : 2);
