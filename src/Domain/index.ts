@@ -23,6 +23,7 @@ export * from './WorkflowRun.js';
 export * from './Actor.js';
 export * from './Role.js';
 export * from './PlanProposal.js';
+export * from './ManualConfirmation.js';
 export * from './Diagnosis.js';
 export * from './Artifact.js';
 export * from './Environment.js';

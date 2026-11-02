@@ -94,6 +94,15 @@ describe('CycleEngine', () => {
         expect(c2?.status).toBe(CheckStatus.Passed);
     });
 
+    it('passes a manual check when the operator confirmed it, else holds for release', async () => {
+        const checklist = checklistOf([check('c1', 'critical', manualUnanswered, 'manualConfirm')]);
+        const held = await newEngine().run({project: makeProject(), procedure: makeProcedure(), checklist: checklist});
+        expect(held.cycle.state).toBe(CycleState.ManualReleaseRequired);
+
+        const confirmed = await newEngine().run({project: makeProject(), procedure: makeProcedure(), checklist: checklist, confirmations: {c1: true}});
+        expect(confirmed.cycle.state).toBe(CycleState.Passed);
+    });
+
     it('persists the cycle and reads it back identically', async () => {
         const store = new FileStore(root);
         const checklist = checklistOf([check('c1', 'critical', printfOk, 'exitZero')]);

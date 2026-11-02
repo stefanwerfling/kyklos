@@ -45,6 +45,7 @@ export interface RealRunInput {
     project: Project;
     target: TargetSystem;
     root: RootRef;
+    confirmations?: Record<string, boolean>;
 }
 
 /**
@@ -76,7 +77,7 @@ export class RealRunner {
      * @returns {Promise<PlanRunResult>} The execution plan and the cycle.
      */
     public async run(input: RealRunInput): Promise<PlanRunResult> {
-        return this._executor.run({project: input.project, target: input.target, root: input.root});
+        return this._executor.run({project: input.project, target: input.target, root: input.root, confirmations: input.confirmations});
     }
 
 }

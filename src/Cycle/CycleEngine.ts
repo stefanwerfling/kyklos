@@ -7,7 +7,8 @@
  * persists the whole run to a FileStore. Time and ids are injected so a run is
  * fully reproducible in tests.
  */
-import {CheckStatus, Criticality, Severity} from '../Domain/Common.js';
+import {AdapterKind, CheckStatus, Criticality, Severity} from '../Domain/Common.js';
+import {Check} from '../Domain/Check.js';
 import {Checklist} from '../Domain/Checklist.js';
 import {Cycle, CycleSchema} from '../Domain/Cycle.js';
 import {Deviation, DeviationSchema} from '../Domain/Deviation.js';
@@ -92,6 +93,14 @@ export interface RunCycleInput {
      * @member {Record<string, RunOptions>|undefined}
      */
     runOptions?: Record<string, RunOptions>;
+
+    /**
+     * Confirmed manual checks, keyed by check id. A true value seeds the manual
+     * action's confirmation so the check can pass; attribution is recorded
+     * separately as a ManualConfirmation, so this is never an anonymous flag.
+     * @member {Record<string, boolean>|undefined}
+     */
+    confirmations?: Record<string, boolean>;
 }
 
 /**
@@ -188,9 +197,10 @@ export class CycleEngine {
             const base = input.runOptions?.[check.id];
             const precondsOk = PreconditionEvaluator.satisfied(check.preconditions, statuses);
             const options: RunOptions = {...base, applicable: (base?.applicable ?? true) && precondsOk};
+            const effectiveCheck = CycleEngine._confirmed(check, input.confirmations?.[check.id] === true);
             // sequential by design — checks may have ordering side effects
             // eslint-disable-next-line no-await-in-loop
-            const result = await this._processRunner.run(check, options, cycleId);
+            const result = await this._processRunner.run(effectiveCheck, options, cycleId);
             statuses.set(check.id, result.status);
             toolExecutions.push(result.execution);
 
@@ -239,6 +249,22 @@ export class CycleEngine {
         const result: CycleRunResult = {cycle: cycle, observations: observations, deviations: deviations, toolExecutions: toolExecutions, evidence: evidence};
         await this._persist(result);
         return result;
+    }
+
+    /**
+     * Seed a manual check's confirmation when the operator confirmed it.
+     * Only manual actions are touched, so other adapters' strict params stay intact.
+     * @param {Check} check - The check about to run.
+     * @param {boolean} confirmed - Whether the operator confirmed this check.
+     * @returns {Check} The check, with confirmed:true merged in for a confirmed manual action.
+     */
+    protected static _confirmed(check: Check, confirmed: boolean): Check {
+        if (!confirmed || check.action.adapter !== AdapterKind.Manual) {
+            return check;
+        }
+
+        const params = (check.action.params ?? {}) as Record<string, unknown>;
+        return {...check, action: {...check.action, params: {...params, confirmed: true}}};
     }
 
     /**

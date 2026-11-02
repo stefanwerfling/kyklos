@@ -7,6 +7,7 @@ import {
     type Artifact,
     ArtifactKind,
     Capability,
+    type ManualConfirmation,
     type PlanProposal,
     PlanKind,
     type Role,
@@ -415,6 +416,10 @@ export const makeEnvironmentRun = (): EnvironmentRun => {
         state: CycleState.Passed,
         recordedAt: TS
     };
+};
+
+export const makeManualConfirmation = (): ManualConfirmation => {
+    return {id: 'mconf-1', checkId: 'local.frontend-sighting', confirmedBy: 'alice', note: 'frontend verified in the browser', confirmedAt: TS};
 };
 
 export const makePlanProposal = (): PlanProposal => {

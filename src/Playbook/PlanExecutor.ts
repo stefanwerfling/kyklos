@@ -44,6 +44,7 @@ export interface PlanRunInput {
     target: TargetSystem;
     root: RootRef;
     runOptions?: Record<string, RunOptions>;
+    confirmations?: Record<string, boolean>;
 }
 
 /**
@@ -114,7 +115,7 @@ export class PlanExecutor {
         let cycle: CycleRunResult|undefined;
 
         if (runnable) {
-            cycle = await this._engine.run({project: input.project, procedure: PlanExecutor._procedure(input.root), checklist: PlanExecutor._checklist(input.root, compilation.compiledChecks), runOptions: input.runOptions});
+            cycle = await this._engine.run({project: input.project, procedure: PlanExecutor._procedure(input.root), checklist: PlanExecutor._checklist(input.root, compilation.compiledChecks), runOptions: input.runOptions, confirmations: input.confirmations});
         }
 
         const plan: ExecutionPlan = {

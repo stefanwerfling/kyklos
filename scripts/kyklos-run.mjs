@@ -9,18 +9,22 @@
  * real and the run stops at the first step that needs a human.
  *
  * Usage:
- *   node scripts/kyklos-run.mjs <storeDir> <manifest.json> [envFile]
+ *   node scripts/kyklos-run.mjs <storeDir> <manifest.json> [envFile] [confirmationsFile]
  * Example:
- *   node scripts/kyklos-run.mjs ../mwpa/.kyklos ../mwpa/.kyklos/mwpa.run.json ../mwpa/.kyklos/.env
+ *   node scripts/kyklos-run.mjs ../mwpa/.kyklos ../mwpa/.kyklos/mwpa.run.json ../mwpa/.kyklos/.env ../mwpa/.kyklos/confirmations.json
+ *
+ * confirmationsFile is a JSON map of checkId -> {confirmedBy, note}. Each entry
+ * is written as an attributed, append-only ManualConfirmation record and lets
+ * that manual check pass — so the run can proceed past a human boundary.
  */
 import {readFileSync} from 'node:fs';
 import {dirname, join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const {RealRunner, FileStore, RandomIdGenerator, ReleaseGate, SystemClock} = await import(join(here, '..', 'dist', 'index.js'));
+const {ManualConfirmationSchema, RealRunner, FileStore, RandomIdGenerator, ReleaseGate, SystemClock} = await import(join(here, '..', 'dist', 'index.js'));
 
-const [storeDir, manifestPath, envPath] = process.argv.slice(2);
+const [storeDir, manifestPath, envPath, confirmationsPath] = process.argv.slice(2);
 
 if (storeDir === undefined || manifestPath === undefined) {
     console.error('usage: node scripts/kyklos-run.mjs <storeDir> <manifest.json> [envFile]');
@@ -47,15 +51,36 @@ const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
 const env = envPath === undefined ? {} : loadEnv(envPath);
 Object.assign(process.env, env); // so shell wrappers inherit non-secret vars
 
+const store = new FileStore(storeDir);
+const idGenerator = new RandomIdGenerator();
+const clock = new SystemClock();
+
+// Record attributed confirmations (append-only) and build the boolean map.
+const confirmations = {};
+if (confirmationsPath !== undefined) {
+    const entries = JSON.parse(readFileSync(confirmationsPath, 'utf8'));
+    for (const [checkId, entry] of Object.entries(entries)) {
+        await store.appendRecord('manualConfirmation', ManualConfirmationSchema, {
+            id: idGenerator.next('mconf'),
+            checkId: checkId,
+            confirmedBy: entry.confirmedBy,
+            note: entry.note,
+            confirmedAt: clock.now()
+        });
+        confirmations[checkId] = true;
+    }
+    console.log(`confirmations: ${Object.keys(confirmations).length} recorded`);
+}
+
 const runner = new RealRunner({
-    store: new FileStore(storeDir),
-    idGenerator: new RandomIdGenerator(),
-    clock: new SystemClock(),
+    store: store,
+    idGenerator: idGenerator,
+    clock: clock,
     env: env,
     allowlist: manifest.allowlist ?? []
 });
 
-const result = await runner.run({project: manifest.project, target: manifest.target, root: manifest.root});
+const result = await runner.run({project: manifest.project, target: manifest.target, root: manifest.root, confirmations: confirmations});
 
 console.log(`root:     ${manifest.root.kind} ${manifest.root.id}@${manifest.root.version}`);
 console.log(`checks:   ${result.plan.compiledChecks.length} compiled`);
