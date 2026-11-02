@@ -8,6 +8,7 @@ import {
     type Check,
     type Checklist,
     CheckRunner,
+    CheckStatus,
     CycleEngine,
     CycleSchema,
     CycleState,
@@ -70,6 +71,27 @@ describe('CycleEngine', () => {
         ]);
         const result = await newEngine().run({project: makeProject(), procedure: makeProcedure(), checklist: checklist});
         expect(result.cycle.state).toBe(CycleState.ManualReleaseRequired);
+    });
+
+    it('does not run a check whose preconditions are unmet (gating)', async () => {
+        const checklist = checklistOf([
+            check('c1', 'critical', shellFalse, 'exitZero'),
+            {...check('c2', 'critical', printfOk, 'exitZero'), preconditions: ['c1==passed']}
+        ]);
+        const result = await newEngine().run({project: makeProject(), procedure: makeProcedure(), checklist: checklist});
+        const c2 = result.observations.find((observation) => observation.checkId === 'c2');
+        // c1 failed, so c2's precondition is unmet: c2 is not_applicable and its adapter never ran.
+        expect(c2?.status).toBe(CheckStatus.NotApplicable);
+    });
+
+    it('runs a check whose preconditions are met', async () => {
+        const checklist = checklistOf([
+            check('c1', 'critical', printfOk, 'exitZero'),
+            {...check('c2', 'critical', printfOk, 'exitZero'), preconditions: ['c1==passed']}
+        ]);
+        const result = await newEngine().run({project: makeProject(), procedure: makeProcedure(), checklist: checklist});
+        const c2 = result.observations.find((observation) => observation.checkId === 'c2');
+        expect(c2?.status).toBe(CheckStatus.Passed);
     });
 
     it('persists the cycle and reads it back identically', async () => {

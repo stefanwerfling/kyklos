@@ -15,4 +15,5 @@ export * from './DryRunRegistry.js';
 export * from './EnvResolvingAdapter.js';
 export * from './AdapterRegistry.js';
 export * from './SuccessCriterionEvaluator.js';
+export * from './PreconditionEvaluator.js';
 export * from './CheckRunner.js';

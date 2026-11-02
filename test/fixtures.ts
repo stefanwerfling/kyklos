@@ -87,7 +87,7 @@ export const makeCheck = (): Check => {
         group: 'backup',
         description: 'Restore into a test environment and verify consistency',
         criticality: Criticality.Critical,
-        preconditions: ['backup.verify-integrity==passed'],
+        preconditions: [],
         action: {adapter: AdapterKind.Shell, params: {cmd: '${RESTORE_TEST_CMD}', timeoutMs: 1800000}},
         successCriterion: {kind: 'exitZero'},
         expectedEvidence: ['stdout', 'test:report'],

@@ -19,6 +19,7 @@ import {ToolExecution, ToolExecutionSchema} from '../Domain/ToolExecution.js';
 import {EvidenceFactory} from '../Execution/EvidenceFactory.js';
 import {ProcessRunner} from '../Execution/ProcessRunner.js';
 import {CheckRunner} from '../Runner/CheckRunner.js';
+import {PreconditionEvaluator} from '../Runner/PreconditionEvaluator.js';
 import {RunOptions} from '../Runner/AdapterTypes.js';
 import {SignatureBuilder} from '../Learning/SignatureBuilder.js';
 import {PermissionPolicy} from '../Security/PermissionPolicy.js';
@@ -181,12 +182,16 @@ export class CycleEngine {
         const toolExecutions: ToolExecution[] = [];
         const evidence: Evidence[] = [];
         const entries: CheckStatusEntry[] = [];
+        const statuses = new Map<string, CheckStatus>();
 
         for (const check of input.checklist.checks) {
-            const options = input.runOptions?.[check.id];
+            const base = input.runOptions?.[check.id];
+            const precondsOk = PreconditionEvaluator.satisfied(check.preconditions, statuses);
+            const options: RunOptions = {...base, applicable: (base?.applicable ?? true) && precondsOk};
             // sequential by design — checks may have ordering side effects
             // eslint-disable-next-line no-await-in-loop
             const result = await this._processRunner.run(check, options, cycleId);
+            statuses.set(check.id, result.status);
             toolExecutions.push(result.execution);
 
             const proof = EvidenceFactory.fromToolExecution(result.execution, this._idGenerator.next('ev'), this._clock.now());
