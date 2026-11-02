@@ -55,6 +55,27 @@ export class EvidenceFactory {
     }
 
     /**
+     * Build evidence for a result a person manually confirmed. Never a
+     * machine-verified result.
+     * @param {string} statement - What the person confirmed.
+     * @param {string} producedBy - The confirming actor.
+     * @param {string} id - Evidence id.
+     * @param {string} createdAt - Creation timestamp (ISO).
+     * @returns {Evidence} Evidence with source manually_confirmed.
+     */
+    public static manuallyConfirmed(statement: string, producedBy: string, id: string, createdAt: string): Evidence {
+        return {
+            id: id,
+            type: EvidenceType.Log,
+            source: EvidenceSource.ManuallyConfirmed,
+            inline: statement,
+            sha256: Checksum.sha256Hex(statement),
+            producedBy: producedBy,
+            createdAt: createdAt
+        };
+    }
+
+    /**
      * Build evidence recording that a check was not executable.
      * @param {string} reason - Why it could not run, with a concrete alternative.
      * @param {string} producedBy - Who/what produced it.

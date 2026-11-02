@@ -239,6 +239,53 @@ export enum WorkflowPhaseRunOn {
 }
 
 /**
+ * How a task is carried out. `automatic` reuses a check/adapter; the human
+ * modes require feedback or an approval before they can complete.
+ */
+export enum TaskMode {
+    Automatic = 'automatic',
+    LlmAssisted = 'llm_assisted',
+    Manual = 'manual',
+    Delegated = 'delegated',
+    Approval = 'approval'
+}
+
+/**
+ * Lifecycle state of a task. Derived from the task's records, never set by a
+ * bare flag — a human mode completes only via validated feedback/approval.
+ */
+export enum TaskState {
+    Pending = 'pending',
+    Ready = 'ready',
+    Assigned = 'assigned',
+    InProgress = 'in_progress',
+    WaitingForInput = 'waiting_for_input',
+    WaitingForApproval = 'waiting_for_approval',
+    Completed = 'completed',
+    Failed = 'failed',
+    Blocked = 'blocked',
+    Cancelled = 'cancelled',
+    Skipped = 'skipped'
+}
+
+/**
+ * Result a person reports for a manual/delegated task.
+ */
+export enum FeedbackResult {
+    Pass = 'pass',
+    Fail = 'fail',
+    NeedsRework = 'needs_rework'
+}
+
+/**
+ * Decision of an approval.
+ */
+export enum ApprovalDecision {
+    Approve = 'approve',
+    Reject = 'reject'
+}
+
+/**
  * Kind of diagnostic a resolution/compilation can report. Nothing is ever
  * silently overridden; conflicts and violations are explicit.
  */

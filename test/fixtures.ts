@@ -44,7 +44,15 @@ import {
     type Workflow,
     type WorkflowRun,
     type PhaseRun,
-    WorkflowStatus
+    WorkflowStatus,
+    type Actor,
+    type Approval,
+    ApprovalDecision,
+    type Feedback,
+    FeedbackResult,
+    type Task,
+    type TaskAssignment,
+    TaskMode
 } from '../src/index';
 
 const TS = '2026-10-28T00:00:00.000Z';
@@ -159,6 +167,38 @@ export const makePlaybook = (): Playbook => {
         knowledgeRefs: [{scope: PlaybookScope.System, id: 'debian-upgrade-pin'}],
         sealed: false
     };
+};
+
+export const makeActor = (): Actor => {
+    return {id: 'actor-1', name: 'Alice', roles: ['operator', 'release-approver']};
+};
+
+export const makeTask = (): Task => {
+    return {
+        id: 'task-1',
+        mode: TaskMode.Manual,
+        description: 'Verify the hardware is installed',
+        goal: 'Hardware present and powered',
+        instructions: 'Check the rack and photograph it',
+        successCriteria: ['hardware present'],
+        evidenceRequirements: ['photo'],
+        permissionTier: undefined,
+        checkRef: undefined,
+        assigneeRole: 'operator',
+        createdAt: TS
+    };
+};
+
+export const makeTaskAssignment = (): TaskAssignment => {
+    return {id: 'ta-1', taskId: 'task-1', actorId: 'actor-1', assignedAt: TS, dueAt: undefined};
+};
+
+export const makeFeedback = (): Feedback => {
+    return {id: 'fb-1', taskId: 'task-1', actorId: 'actor-1', result: FeedbackResult.Pass, note: 'done', evidenceIds: ['ev-1'], timeSpentMinutes: 30, submittedAt: TS};
+};
+
+export const makeApproval = (): Approval => {
+    return {id: 'ap-1', taskId: 'task-1', actorId: 'actor-1', decision: ApprovalDecision.Approve, rationale: 'ok', role: 'release-approver', decidedAt: TS};
 };
 
 export const makeWorkflow = (): Workflow => {

@@ -18,7 +18,12 @@ import {
     TargetSystemSchema,
     ToolExecutionSchema,
     WorkflowRunSchema,
-    WorkflowSchema
+    WorkflowSchema,
+    ActorSchema,
+    ApprovalSchema,
+    FeedbackSchema,
+    TaskAssignmentSchema,
+    TaskSchema
 } from '../../src/index';
 import {
     makeCheck,
@@ -39,7 +44,12 @@ import {
     makeTargetSystem,
     makeToolExecution,
     makeWorkflow,
-    makeWorkflowRun
+    makeWorkflowRun,
+    makeActor,
+    makeApproval,
+    makeFeedback,
+    makeTask,
+    makeTaskAssignment
 } from '../fixtures';
 
 const cases = [
@@ -61,7 +71,12 @@ const cases = [
     {name: 'ExecutionPlan', schema: ExecutionPlanSchema, value: makeExecutionPlan()},
     {name: 'Workflow', schema: WorkflowSchema, value: makeWorkflow()},
     {name: 'WorkflowRun', schema: WorkflowRunSchema, value: makeWorkflowRun()},
-    {name: 'PhaseRun', schema: PhaseRunSchema, value: makePhaseRun()}
+    {name: 'PhaseRun', schema: PhaseRunSchema, value: makePhaseRun()},
+    {name: 'Actor', schema: ActorSchema, value: makeActor()},
+    {name: 'Task', schema: TaskSchema, value: makeTask()},
+    {name: 'TaskAssignment', schema: TaskAssignmentSchema, value: makeTaskAssignment()},
+    {name: 'Feedback', schema: FeedbackSchema, value: makeFeedback()},
+    {name: 'Approval', schema: ApprovalSchema, value: makeApproval()}
 ];
 
 describe('Domain schemas accept valid samples', () => {
