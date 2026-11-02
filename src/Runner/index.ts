@@ -11,6 +11,7 @@ export * from './BrowserAdapter.js';
 export * from './EmulatorAdapter.js';
 export * from './AdbEmulatorDriver.js';
 export * from './DryRunAdapter.js';
+export * from './DryRunRegistry.js';
 export * from './AdapterRegistry.js';
 export * from './SuccessCriterionEvaluator.js';
 export * from './CheckRunner.js';
