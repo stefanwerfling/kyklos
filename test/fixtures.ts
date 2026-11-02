@@ -40,7 +40,11 @@ import {
     Severity,
     type TargetSystem,
     type ToolExecution,
-    ValidationResult
+    ValidationResult,
+    type Workflow,
+    type WorkflowRun,
+    type PhaseRun,
+    WorkflowStatus
 } from '../src/index';
 
 const TS = '2026-10-28T00:00:00.000Z';
@@ -154,6 +158,43 @@ export const makePlaybook = (): Playbook => {
         evidenceRequirements: ['stdout'],
         knowledgeRefs: [{scope: PlaybookScope.System, id: 'debian-upgrade-pin'}],
         sealed: false
+    };
+};
+
+export const makeWorkflow = (): Workflow => {
+    return {
+        id: 'release.flow',
+        version: '1.0.0',
+        name: 'Release flow',
+        description: 'Prepare then deploy.',
+        status: WorkflowStatus.Published,
+        phases: [
+            {id: 'prepare', name: 'Prepare', dependsOn: [], optional: false, root: {kind: PlaybookStepKind.Playbook, id: 'update.debian', version: '1.0.0'}, targetSystemId: 'debian-12', rollback: undefined, runOn: undefined},
+            {id: 'deploy', name: 'Deploy', dependsOn: ['prepare'], optional: false, root: {kind: PlaybookStepKind.Procedure, id: 'backup.create', version: '1.0.0'}, targetSystemId: undefined, rollback: undefined, runOn: undefined}
+        ]
+    };
+};
+
+export const makeWorkflowRun = (): WorkflowRun => {
+    return {
+        id: 'wfr-1',
+        workflowId: 'release.flow',
+        workflowVersion: '1.0.0',
+        projectId: 'proj-example',
+        startedAt: TS
+    };
+};
+
+export const makePhaseRun = (): PhaseRun => {
+    return {
+        id: 'pr-1',
+        workflowRunId: 'wfr-1',
+        phaseId: 'prepare',
+        state: CycleState.Passed,
+        cycleId: 'cyc-1',
+        planId: 'plan-1',
+        startedAt: TS,
+        endedAt: TS
     };
 };
 

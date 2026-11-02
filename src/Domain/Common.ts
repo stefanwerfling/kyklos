@@ -222,6 +222,23 @@ export enum PlaybookStepRelation {
 }
 
 /**
+ * Publication status of a workflow. Only published workflows run.
+ */
+export enum WorkflowStatus {
+    Draft = 'draft',
+    Published = 'published'
+}
+
+/**
+ * When a workflow phase runs. `on_prior_failure` is for rollback/recovery
+ * phases that only run after a critical phase failed.
+ */
+export enum WorkflowPhaseRunOn {
+    Always = 'always',
+    OnPriorFailure = 'on_prior_failure'
+}
+
+/**
  * Kind of diagnostic a resolution/compilation can report. Nothing is ever
  * silently overridden; conflicts and violations are explicit.
  */

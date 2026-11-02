@@ -18,3 +18,5 @@ export * from './ToolExecution.js';
 export * from './TargetSystem.js';
 export * from './Playbook.js';
 export * from './ExecutionPlan.js';
+export * from './Workflow.js';
+export * from './WorkflowRun.js';
