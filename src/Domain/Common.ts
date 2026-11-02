@@ -109,11 +109,15 @@ export enum ReleaseOutcome {
 }
 
 /**
- * Scope of a lesson: project-specific or generally reusable.
+ * Knowledge/lesson scope, from most specific to most general. More specific
+ * wins for use; promotion to a broader scope is controlled (validated +
+ * secret-free + authorized).
  */
-export enum LessonScope {
+export enum KnowledgeScope {
     Project = 'project',
-    General = 'general'
+    Technology = 'technology',
+    System = 'system',
+    Global = 'global'
 }
 
 /**

@@ -17,6 +17,7 @@ export * from './Orchestration/index.js';
 export * from './Playbook/index.js';
 export * from './Workflow/index.js';
 export * from './Task/index.js';
+export * from './Knowledge/index.js';
 export * from './Report/index.js';
 export * from './Security/index.js';
 export * from './Examples/index.js';

@@ -21,6 +21,7 @@ export * from './ExecutionPlan.js';
 export * from './Workflow.js';
 export * from './WorkflowRun.js';
 export * from './Actor.js';
+export * from './Diagnosis.js';
 export * from './Task.js';
 export * from './TaskAssignment.js';
 export * from './Feedback.js';

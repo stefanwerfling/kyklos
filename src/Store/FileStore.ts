@@ -132,6 +132,39 @@ export class FileStore {
     }
 
     /**
+     * Read and validate every version of every definition in a collection.
+     * @param {string} collection - Definition collection.
+     * @param {Schema<unknown>} schema - The vts schema each stored value must satisfy.
+     * @returns {Promise<ExtractSchemaResultType[]>} The validated definitions (empty if none).
+     */
+    public async listDefinitions<S extends Schema<unknown>>(collection: string, schema: S): Promise<ExtractSchemaResultType<S>[]> {
+        const dir = join(this._rootDir, 'definitions', collection);
+        let files: string[];
+
+        try {
+            files = await readdir(dir, {recursive: true});
+        } catch (error: unknown) {
+            if (FileStore._errorCode(error) === 'ENOENT') {
+                return [];
+            }
+
+            throw error;
+        }
+
+        const jsonFiles = files.filter((file): boolean => file.endsWith('.json')).sort();
+        const result: ExtractSchemaResultType<S>[] = [];
+
+        for (const file of jsonFiles) {
+            // sequential by design — deterministic ordered reads
+            // eslint-disable-next-line no-await-in-loop
+            const value = await this._readValidated(join(dir, file), schema);
+            result.push(value);
+        }
+
+        return result;
+    }
+
+    /**
      * Build the on-disk path of a definition.
      * @param {string} collection - Definition collection.
      * @param {string} id - Definition id.

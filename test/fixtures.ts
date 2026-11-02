@@ -16,10 +16,11 @@ import {
     EvidenceSource,
     EvidenceType,
     type ImprovementProposal,
+    type Diagnosis,
     type Incident,
     IncidentStatus,
+    KnowledgeScope,
     type Lesson,
-    LessonScope,
     LessonStatus,
     type Observation,
     OnFailure,
@@ -328,7 +329,7 @@ export const makeLesson = (): Lesson => {
     return {
         id: 'lesson.pg-restore-fk-consistency',
         version: '1.0.0',
-        scope: LessonScope.General,
+        scope: KnowledgeScope.Global,
         statement: 'Logical PostgreSQL dumps must ensure referential integrity on restore. A successful dump does not prove a successful restore.',
         appliesTo: {tech: ['postgresql'], procedureKind: ['software-release', 'backup']},
         conditions: ['Backup mechanism uses pg_dump/pg_restore', 'Schema contains foreign keys'],
@@ -336,6 +337,18 @@ export const makeLesson = (): Lesson => {
         provenance: {originProject: 'flyingfish', incidentSignature: 'restore-incomplete:fk-constraint'},
         validationStatus: LessonStatus.Validated,
         excludes: ['secrets', 'credentials', 'pii', 'project-internal-hostnames']
+    };
+};
+
+export const makeDiagnosis = (): Diagnosis => {
+    return {
+        id: 'diag-1',
+        incidentId: 'inc-1',
+        hypotheses: [
+            {statement: 'pg_dump --data-only without ordering guarantees', confidence: Confidence.Plausible, evidenceIds: ['ev-1']}
+        ],
+        chosenHypothesisIndex: 0,
+        createdAt: TS
     };
 };
 

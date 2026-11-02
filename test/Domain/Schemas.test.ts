@@ -21,6 +21,7 @@ import {
     WorkflowSchema,
     ActorSchema,
     ApprovalSchema,
+    DiagnosisSchema,
     FeedbackSchema,
     TaskAssignmentSchema,
     TaskSchema
@@ -47,6 +48,7 @@ import {
     makeWorkflowRun,
     makeActor,
     makeApproval,
+    makeDiagnosis,
     makeFeedback,
     makeTask,
     makeTaskAssignment
@@ -76,7 +78,8 @@ const cases = [
     {name: 'Task', schema: TaskSchema, value: makeTask()},
     {name: 'TaskAssignment', schema: TaskAssignmentSchema, value: makeTaskAssignment()},
     {name: 'Feedback', schema: FeedbackSchema, value: makeFeedback()},
-    {name: 'Approval', schema: ApprovalSchema, value: makeApproval()}
+    {name: 'Approval', schema: ApprovalSchema, value: makeApproval()},
+    {name: 'Diagnosis', schema: DiagnosisSchema, value: makeDiagnosis()}
 ];
 
 describe('Domain schemas accept valid samples', () => {

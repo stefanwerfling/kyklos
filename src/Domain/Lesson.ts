@@ -8,7 +8,7 @@
  * checked in the target project (see LessonTransfer).
  */
 import {ExtractSchemaResultType, Vts} from 'vts';
-import {IdSchema, LessonScope, LessonStatus, VersionSchema} from './Common.js';
+import {IdSchema, KnowledgeScope, LessonStatus, VersionSchema} from './Common.js';
 
 /**
  * Schema of LessonAppliesTo.
@@ -32,7 +32,7 @@ export const LessonProvenanceSchema = Vts.object({
 export const LessonSchema = Vts.object({
     id: IdSchema,
     version: VersionSchema,
-    scope: Vts.enum(LessonScope),
+    scope: Vts.enum(KnowledgeScope),
     statement: Vts.string(),
     appliesTo: LessonAppliesToSchema,
     conditions: Vts.array(Vts.string({description: 'Condition that must hold in the target project'})),
