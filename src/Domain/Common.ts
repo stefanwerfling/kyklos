@@ -349,7 +349,17 @@ export enum Capability {
     OverrideReleaseGate = 'override_release_gate',
     PromoteKnowledge = 'promote_knowledge',
     ManageEnvironments = 'manage_environments',
-    ManageRoles = 'manage_roles'
+    ManageRoles = 'manage_roles',
+    PublishPlan = 'publish_plan'
+}
+
+/**
+ * The kind of plan an LLM can propose. The proposal is always a draft candidate
+ * — publishing it to a runnable definition is a separate, authorized step.
+ */
+export enum PlanKind {
+    Playbook = 'playbook',
+    Workflow = 'workflow'
 }
 
 const SEMVER_PATTERN = /^\d+\.\d+\.\d+$/u;

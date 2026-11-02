@@ -26,6 +26,7 @@ import {
     EnvironmentSchema,
     EnvironmentRunSchema,
     FeedbackSchema,
+    PlanProposalSchema,
     RoleSchema,
     TaskAssignmentSchema,
     TaskSchema,
@@ -58,6 +59,7 @@ import {
     makeEnvironment,
     makeEnvironmentRun,
     makeFeedback,
+    makePlanProposal,
     makeRole,
     makeTask,
     makeTaskAssignment,
@@ -94,7 +96,8 @@ const cases = [
     {name: 'Environment', schema: EnvironmentSchema, value: makeEnvironment()},
     {name: 'WaveRun', schema: WaveRunSchema, value: makeWaveRun()},
     {name: 'EnvironmentRun', schema: EnvironmentRunSchema, value: makeEnvironmentRun()},
-    {name: 'Role', schema: RoleSchema, value: makeRole()}
+    {name: 'Role', schema: RoleSchema, value: makeRole()},
+    {name: 'PlanProposal', schema: PlanProposalSchema, value: makePlanProposal()}
 ];
 
 describe('Domain schemas accept valid samples', () => {

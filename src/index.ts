@@ -22,6 +22,7 @@ export * from './Artifact/index.js';
 export * from './Environment/index.js';
 export * from './Wave/index.js';
 export * from './Notify/index.js';
+export * from './Planning/index.js';
 export * from './Report/index.js';
 export * from './Security/index.js';
 export * from './Examples/index.js';

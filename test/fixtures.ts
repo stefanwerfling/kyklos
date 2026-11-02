@@ -7,6 +7,8 @@ import {
     type Artifact,
     ArtifactKind,
     Capability,
+    type PlanProposal,
+    PlanKind,
     type Role,
     type Environment,
     EnvironmentKind,
@@ -412,6 +414,21 @@ export const makeEnvironmentRun = (): EnvironmentRun => {
         workflowRunId: 'wfr-1',
         state: CycleState.Passed,
         recordedAt: TS
+    };
+};
+
+export const makePlanProposal = (): PlanProposal => {
+    return {
+        id: 'planprop-1',
+        kind: PlanKind.Playbook,
+        goal: 'Automate the Debian upgrade safely',
+        candidateId: 'cand.debian-upgrade',
+        candidateVersion: '0.1.0',
+        origin: EvidenceSource.LlmAssertion,
+        rationale: 'Recurring upgrade incidents suggest a reusable playbook',
+        validation: {result: ValidationResult.Pending, diagnostics: [], method: undefined},
+        status: ProposalStatus.Proposed,
+        createdAt: TS
     };
 };
 

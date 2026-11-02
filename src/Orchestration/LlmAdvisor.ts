@@ -6,6 +6,7 @@
  * The core runs fully without one (see NullLlmAdvisor), satisfying the
  * "deterministic core works with no LLM" rule.
  */
+import {PlanCandidate} from '../Planning/PlanCandidate.js';
 
 /**
  * Context handed to the advisor for suggestions.
@@ -43,6 +44,15 @@ export interface LlmAdvisor {
      * @returns {Promise<string>} A free-text diagnosis (advisory only).
      */
     diagnose(signature: string): Promise<string>;
+
+    /**
+     * Propose a whole plan (playbook/workflow) for a goal. The result is a draft
+     * candidate as data — never persisted, runnable, or binding by itself.
+     * @param {string} goal - The goal the plan should achieve.
+     * @param {AdvisorContext} context - The current context.
+     * @returns {Promise<PlanCandidate|undefined>} A draft candidate, or undefined when none is offered.
+     */
+    proposePlan(goal: string, context: AdvisorContext): Promise<PlanCandidate|undefined>;
 }
 
 /**
@@ -62,6 +72,13 @@ export class NullLlmAdvisor implements LlmAdvisor {
      */
     public async diagnose(): Promise<string> {
         return '';
+    }
+
+    /**
+     * @returns {Promise<PlanCandidate|undefined>} Always undefined — no LLM.
+     */
+    public async proposePlan(): Promise<PlanCandidate|undefined> {
+        return undefined;
     }
 
 }
