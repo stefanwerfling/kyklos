@@ -69,6 +69,15 @@ export class PermissionPolicy {
     }
 
     /**
+     * Rank a tier by power (lower is weaker); -1 for an unknown tier.
+     * @param {PermissionTier} tier - The tier.
+     * @returns {number} Its rank in the shared ordering.
+     */
+    public static rank(tier: PermissionTier): number {
+        return PermissionPolicy._rank(tier);
+    }
+
+    /**
      * Rank a tier by power (lower is weaker).
      * @param {PermissionTier} tier - The tier.
      * @returns {number} Its rank in the ordering.

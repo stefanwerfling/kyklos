@@ -335,6 +335,23 @@ export enum WaveState {
     Blocked = 'blocked'
 }
 
+/**
+ * A capability a role can grant. These are the side-effectful operations that
+ * are subject to role-based access control; a role holds a set of them. A
+ * production release needs its own capability — a general approve role is not
+ * enough.
+ */
+export enum Capability {
+    AssignTask = 'assign_task',
+    SubmitFeedback = 'submit_feedback',
+    ApproveRelease = 'approve_release',
+    ApproveProductionRelease = 'approve_production_release',
+    OverrideReleaseGate = 'override_release_gate',
+    PromoteKnowledge = 'promote_knowledge',
+    ManageEnvironments = 'manage_environments',
+    ManageRoles = 'manage_roles'
+}
+
 const SEMVER_PATTERN = /^\d+\.\d+\.\d+$/u;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
 

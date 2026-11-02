@@ -6,6 +6,8 @@ import {
     AdapterKind,
     type Artifact,
     ArtifactKind,
+    Capability,
+    type Role,
     type Environment,
     EnvironmentKind,
     type EnvironmentRun,
@@ -178,6 +180,16 @@ export const makePlaybook = (): Playbook => {
 
 export const makeActor = (): Actor => {
     return {id: 'actor-1', name: 'Alice', roles: ['operator', 'release-approver']};
+};
+
+export const makeRole = (): Role => {
+    return {
+        id: 'release-approver',
+        version: '1.0.0',
+        name: 'Release approver',
+        capabilities: [Capability.ApproveRelease, Capability.AssignTask],
+        maxTier: PermissionTier.Production
+    };
 };
 
 export const makeTask = (): Task => {

@@ -9,7 +9,7 @@
  * result — and its completion is derived from feedback + criteria, never a flag.
  */
 import {Schema} from 'vts';
-import {CheckStatus, FeedbackResult, TaskMode, TaskState} from '../Domain/Common.js';
+import {Capability, CheckStatus, FeedbackResult, TaskMode, TaskState} from '../Domain/Common.js';
 import {Actor} from '../Domain/Actor.js';
 import {Approval, ApprovalSchema} from '../Domain/Approval.js';
 import {Evidence, EvidenceSchema} from '../Domain/Evidence.js';
@@ -21,6 +21,7 @@ import {Clock} from '../Cycle/Clock.js';
 import {IdGenerator} from '../Cycle/IdGenerator.js';
 import {EvidenceFactory} from '../Execution/EvidenceFactory.js';
 import {KyklosError, KyklosErrorCode} from '../KyklosError.js';
+import {AuthorizationService} from '../Security/AuthorizationService.js';
 import {FileStore} from '../Store/FileStore.js';
 import {TaskStateResolver} from './TaskStateResolver.js';
 
@@ -52,6 +53,7 @@ export interface TaskServiceOptions {
     store: FileStore;
     idGenerator: IdGenerator;
     clock: Clock;
+    authorization?: AuthorizationService;
 }
 
 const TERMINAL = new Set<TaskState>([TaskState.Completed, TaskState.Failed]);
@@ -80,12 +82,20 @@ export class TaskService {
     protected readonly _clock: Clock;
 
     /**
+     * Optional RBAC decision point. When set, assignment also requires the
+     * AssignTask capability (fail-closed), on top of the task's required role.
+     * @member {AuthorizationService|undefined}
+     */
+    protected readonly _authorization: AuthorizationService|undefined;
+
+    /**
      * @param {TaskServiceOptions} options - Store and injected collaborators.
      */
     public constructor(options: TaskServiceOptions) {
         this._store = options.store;
         this._idGenerator = options.idGenerator;
         this._clock = options.clock;
+        this._authorization = options.authorization;
     }
 
     /**
@@ -98,6 +108,10 @@ export class TaskService {
     public async assign(task: Task, actor: Actor, dueAt?: string): Promise<TaskAssignment> {
         if (task.assigneeRole !== undefined && !actor.roles.includes(task.assigneeRole)) {
             throw new KyklosError(KyklosErrorCode.InvalidState, `actor '${actor.id}' lacks required role '${task.assigneeRole}'`);
+        }
+
+        if (this._authorization !== undefined) {
+            this._authorization.authorize(actor, Capability.AssignTask);
         }
 
         const assignment: TaskAssignment = {id: this._idGenerator.next('tasgn'), taskId: task.id, actorId: actor.id, assignedAt: this._clock.now(), dueAt: dueAt};

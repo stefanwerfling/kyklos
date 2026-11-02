@@ -21,6 +21,7 @@ export * from './ExecutionPlan.js';
 export * from './Workflow.js';
 export * from './WorkflowRun.js';
 export * from './Actor.js';
+export * from './Role.js';
 export * from './Diagnosis.js';
 export * from './Artifact.js';
 export * from './Environment.js';

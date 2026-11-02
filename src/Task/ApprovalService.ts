@@ -16,6 +16,7 @@ import {ReleaseOverride} from '../Cycle/ReleaseGate.js';
 import {Clock} from '../Cycle/Clock.js';
 import {IdGenerator} from '../Cycle/IdGenerator.js';
 import {KyklosError, KyklosErrorCode} from '../KyklosError.js';
+import {ApprovalContext, AuthorizationService} from '../Security/AuthorizationService.js';
 import {FileStore} from '../Store/FileStore.js';
 
 /**
@@ -25,6 +26,7 @@ export interface ApprovalServiceOptions {
     idGenerator: IdGenerator;
     clock: Clock;
     store?: FileStore;
+    authorization?: AuthorizationService;
 }
 
 /**
@@ -51,12 +53,20 @@ export class ApprovalService {
     protected readonly _store: FileStore|undefined;
 
     /**
+     * Optional RBAC decision point. When set, it replaces the role-string check
+     * with a capability + production + separation-of-duties check (fail-closed).
+     * @member {AuthorizationService|undefined}
+     */
+    protected readonly _authorization: AuthorizationService|undefined;
+
+    /**
      * @param {ApprovalServiceOptions} options - Injected collaborators.
      */
     public constructor(options: ApprovalServiceOptions) {
         this._idGenerator = options.idGenerator;
         this._clock = options.clock;
         this._store = options.store;
+        this._authorization = options.authorization;
     }
 
     /**
@@ -65,14 +75,19 @@ export class ApprovalService {
      * @param {Actor} actor - The deciding actor.
      * @param {ApprovalDecision} decision - Approve or reject.
      * @param {string} rationale - Why.
+     * @param {ApprovalContext} [context] - Who performed the work and the target environment (RBAC path only).
      * @returns {Promise<Approval>} The recorded approval.
-     * @throws {KyklosError} When the actor lacks the task's required role.
+     * @throws {KyklosError} When the actor is not authorized to approve.
      */
-    public async decide(task: Task, actor: Actor, decision: ApprovalDecision, rationale: string): Promise<Approval> {
+    public async decide(task: Task, actor: Actor, decision: ApprovalDecision, rationale: string, context?: ApprovalContext): Promise<Approval> {
         const role = task.assigneeRole;
 
-        if (role !== undefined && !actor.roles.includes(role)) {
-            throw new KyklosError(KyklosErrorCode.InvalidState, `actor '${actor.id}' lacks required role '${role}' to approve`);
+        if (this._authorization === undefined) {
+            if (role !== undefined && !actor.roles.includes(role)) {
+                throw new KyklosError(KyklosErrorCode.InvalidState, `actor '${actor.id}' lacks required role '${role}' to approve`);
+            }
+        } else {
+            this._authorization.authorizeApproval(actor, task, context);
         }
 
         const approval: Approval = {
