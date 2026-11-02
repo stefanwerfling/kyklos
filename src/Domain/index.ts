@@ -15,3 +15,6 @@ export * from './ImprovementProposal.js';
 export * from './ReleaseDecision.js';
 export * from './Lesson.js';
 export * from './ToolExecution.js';
+export * from './TargetSystem.js';
+export * from './Playbook.js';
+export * from './ExecutionPlan.js';

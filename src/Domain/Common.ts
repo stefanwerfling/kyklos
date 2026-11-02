@@ -182,6 +182,60 @@ export enum OnFailure {
     Escalate = 'escalate'
 }
 
+/**
+ * Validity scope of a playbook, and the resolution level a specific entry was
+ * found at. More specific wins, but never by lifting a sealed global rule.
+ */
+export enum PlaybookScope {
+    Global = 'global',
+    System = 'system',
+    Technology = 'technology',
+    Project = 'project'
+}
+
+/**
+ * Publication status of a playbook. Only published playbooks are resolvable in
+ * a real run; draft is for authoring.
+ */
+export enum PlaybookStatus {
+    Draft = 'draft',
+    Published = 'published'
+}
+
+/**
+ * What a playbook step references.
+ */
+export enum PlaybookStepKind {
+    Procedure = 'procedure',
+    Playbook = 'playbook',
+    Checklist = 'checklist'
+}
+
+/**
+ * How a step composes with a more general one. `override` is refused on a
+ * sealed target.
+ */
+export enum PlaybookStepRelation {
+    Append = 'append',
+    Specialize = 'specialize',
+    Override = 'override'
+}
+
+/**
+ * Kind of diagnostic a resolution/compilation can report. Nothing is ever
+ * silently overridden; conflicts and violations are explicit.
+ */
+export enum DiagnosticKind {
+    Addition = 'addition',
+    Specialization = 'specialization',
+    Override = 'override',
+    Conflict = 'conflict',
+    Incompatible = 'incompatible',
+    MissingPrerequisite = 'missing_prerequisite',
+    SealedViolation = 'sealed_violation',
+    CycleDetected = 'cycle_detected'
+}
+
 const SEMVER_PATTERN = /^\d+\.\d+\.\d+$/u;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
 

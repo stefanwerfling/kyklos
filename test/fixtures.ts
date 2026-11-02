@@ -23,7 +23,14 @@ import {
     LessonStatus,
     type Observation,
     OnFailure,
+    type Diagnostic,
+    DiagnosticKind,
+    type ExecutionPlan,
     PermissionTier,
+    type Playbook,
+    PlaybookScope,
+    PlaybookStatus,
+    PlaybookStepKind,
     type Procedure,
     type Project,
     ProposalStatus,
@@ -31,6 +38,7 @@ import {
     type ReleaseDecision,
     ReleaseOutcome,
     Severity,
+    type TargetSystem,
     type ToolExecution,
     ValidationResult
 } from '../src/index';
@@ -114,6 +122,56 @@ export const makeToolExecution = (): ToolExecution => {
         stdoutSha256: SHA,
         stderrSha256: SHA,
         outputComplete: true
+    };
+};
+
+export const makeTargetSystem = (): TargetSystem => {
+    return {
+        id: 'debian-12',
+        os: 'debian',
+        osVersion: '12',
+        technologies: ['nodejs', 'postgresql']
+    };
+};
+
+export const makePlaybook = (): Playbook => {
+    return {
+        id: 'update.debian',
+        version: '1.0.0',
+        name: 'Update a Debian server',
+        description: 'Backup, apply APT updates, verify services.',
+        status: PlaybookStatus.Published,
+        scope: PlaybookScope.System,
+        targetSystems: ['debian'],
+        technologies: [],
+        prerequisites: ['maintenance window scheduled'],
+        steps: [
+            {kind: PlaybookStepKind.Procedure, id: 'backup.create', version: '1.0.0', relation: undefined},
+            {kind: PlaybookStepKind.Checklist, id: 'apt.upgrade', version: '1.0.0'}
+        ],
+        successCriteria: ['all services healthy'],
+        rollback: {playbookId: 'rollback.debian', version: '1.0.0'},
+        evidenceRequirements: ['stdout'],
+        knowledgeRefs: [{scope: PlaybookScope.System, id: 'debian-upgrade-pin'}],
+        sealed: false
+    };
+};
+
+export const makeExecutionPlan = (): ExecutionPlan => {
+    const diagnostics: Diagnostic[] = [{kind: DiagnosticKind.Addition, message: 'added backup step', ref: 'backup.create@1.0.0'}];
+    return {
+        id: 'plan-1',
+        createdAt: TS,
+        projectId: 'proj-example',
+        rootKind: PlaybookStepKind.Playbook,
+        rootId: 'update.debian',
+        rootVersion: '1.0.0',
+        targetSystemId: 'debian-12',
+        resolved: [{kind: PlaybookStepKind.Playbook, id: 'update.debian', version: '1.0.0', level: PlaybookScope.System}],
+        checkProvenance: [{checkId: 'backup.restore-test', sourceKind: PlaybookStepKind.Procedure, sourceId: 'backup.create', sourceVersion: '1.0.0', level: PlaybookScope.System}],
+        compiledChecks: [makeCheck()],
+        diagnostics: diagnostics,
+        cycleId: 'cyc-1'
     };
 };
 

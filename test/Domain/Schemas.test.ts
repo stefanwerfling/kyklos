@@ -12,6 +12,9 @@ import {
     ProcedureSchema,
     ProjectSchema,
     ReleaseDecisionSchema,
+    ExecutionPlanSchema,
+    PlaybookSchema,
+    TargetSystemSchema,
     ToolExecutionSchema
 } from '../../src/index';
 import {
@@ -25,8 +28,11 @@ import {
     makeLesson,
     makeObservation,
     makeProcedure,
+    makeExecutionPlan,
+    makePlaybook,
     makeProject,
     makeReleaseDecision,
+    makeTargetSystem,
     makeToolExecution
 } from '../fixtures';
 
@@ -43,7 +49,10 @@ const cases = [
     {name: 'ImprovementProposal', schema: ImprovementProposalSchema, value: makeImprovementProposal()},
     {name: 'ReleaseDecision', schema: ReleaseDecisionSchema, value: makeReleaseDecision()},
     {name: 'Lesson', schema: LessonSchema, value: makeLesson()},
-    {name: 'ToolExecution', schema: ToolExecutionSchema, value: makeToolExecution()}
+    {name: 'ToolExecution', schema: ToolExecutionSchema, value: makeToolExecution()},
+    {name: 'TargetSystem', schema: TargetSystemSchema, value: makeTargetSystem()},
+    {name: 'Playbook', schema: PlaybookSchema, value: makePlaybook()},
+    {name: 'ExecutionPlan', schema: ExecutionPlanSchema, value: makeExecutionPlan()}
 ];
 
 describe('Domain schemas accept valid samples', () => {
