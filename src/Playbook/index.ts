@@ -7,3 +7,4 @@ export * from './PlaybookCompiler.js';
 export * from './StoreDefinitionSource.js';
 export * from './PlanExecutor.js';
 export * from './DryRunner.js';
+export * from './RealRunner.js';
