@@ -37,6 +37,7 @@ Jede Fähigkeit ist danach beschriftet, wie weit sie tatsächlich reicht:
 | Fähigkeit | Stand |
 |---|---|
 | Domänenmodell, versionierte Checklisten, deterministische Ausführung & Gatekeeping | **implementiert, automatisiert getestet** |
+| Playbook-Modell & Auflösung (W1): versionierte, komponierbare Playbooks, die Procedures/Playbooks referenzieren, pro Zielsystem auflösen und zur bestehenden Checkliste kompilieren — Engine unverändert | **implementiert, automatisiert getestet** (Resolver, Compiler, Zyklus-Erkennung, sealed-Regel-Enforcement, ExecutionPlan-Provenienz) |
 | Freigabe, Abweichungen/Vorfälle, Ähnlichkeitssuche, Verbesserungsvorschläge, Lesson-Transfer | **implementiert, automatisiert getestet** |
 | Evidence-Provenance + `ToolExecution` durch den ganzen Zyklus (persistiert, im Report referenziert) | **implementiert, automatisiert getestet** (echter `node`-Prozess-Integrationstest) |
 | CLI-Adapter + Discovery (package.json-Scripts) | **implementiert, automatisiert getestet**; ein echtes `npm run typecheck` wurde ausgeführt und erfasst |

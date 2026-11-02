@@ -33,6 +33,7 @@ Each capability is labelled by how far it actually goes:
 | Capability | State |
 |---|---|
 | Domain model, versioned checklists, deterministic execution & gatekeeping | **implemented, automated-tested** |
+| Playbook model & resolution (W1): versioned, composable playbooks that reference procedures/playbooks, resolve per target system, and compile to the existing checklist — engine unchanged | **implemented, automated-tested** (resolver, compiler, dependency-cycle detection, sealed-rule enforcement, ExecutionPlan provenance) |
 | Release decision, deviations/incidents, similarity search, improvement proposals, lesson transfer | **implemented, automated-tested** |
 | Evidence provenance + `ToolExecution` through the full cycle (persisted, referenced by the report) | **implemented, automated-tested** (real `node` process integration test) |
 | CLI adapter + discovery (package.json scripts) | **implemented, automated-tested**; a real `npm run typecheck` was executed and recorded |
