@@ -34,6 +34,7 @@ Each capability is labelled by how far it actually goes:
 |---|---|
 | Domain model, versioned checklists, deterministic execution & gatekeeping | **implemented, automated-tested** |
 | Playbook model & resolution (W1): versioned, composable playbooks that reference procedures/playbooks, resolve per target system, and compile to the existing checklist — engine unchanged | **implemented, automated-tested** (resolver, compiler, dependency-cycle detection, sealed-rule enforcement, ExecutionPlan provenance) |
+| Workflow engine (W2): phases over cycles with dependencies, optional/recovery phases, phase-gate from the cycle state, rollback-on-failure, and **resume** via append-only PhaseRuns — each phase runs through the unchanged PlanExecutor/CycleEngine | **implemented, automated-tested** (WorkflowStateResolver, WorkflowEngine, ResumeManager; real PlanExecutor integration) |
 | Release decision, deviations/incidents, similarity search, improvement proposals, lesson transfer | **implemented, automated-tested** |
 | Evidence provenance + `ToolExecution` through the full cycle (persisted, referenced by the report) | **implemented, automated-tested** (real `node` process integration test) |
 | CLI adapter + discovery (package.json scripts) | **implemented, automated-tested**; a real `npm run typecheck` was executed and recorded |
