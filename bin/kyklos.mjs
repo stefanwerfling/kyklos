@@ -111,6 +111,8 @@ const loadEnv = (path) => {
     return env;
 };
 
+const resolvePrompt = (text, env) => text.replace(/\$\{([A-Za-z_][A-Za-z0-9_]*)\}/gu, (match, name) => env[name] ?? process.env[name] ?? match);
+
 const ICON = {passed: '✓', failed: '✗', unknown: '→', not_applicable: '⧸', skipped: '·', not_executable: '✗'};
 const statusWord = (status) => L.status[status] ?? status;
 const outcomeWord = (outcome) => L.outcome[outcome] ?? outcome;
@@ -163,7 +165,8 @@ if (command === 'play') {
 
     const confirm = async (check) => {
         const prompt = check.action?.params?.prompt;
-        console.log(`\n→ ${L.manualStep} [${check.id}]: ${typeof prompt === 'string' && prompt.length > 0 ? prompt : check.description}`);
+        const raw = typeof prompt === 'string' && prompt.length > 0 ? prompt : check.description;
+        console.log(`\n→ ${L.manualStep} [${check.id}]: ${resolvePrompt(raw, env)}`);
         const answer = (await ask(L.donePrompt)).trim().toLowerCase();
         if (answer !== 'y' && answer !== 'j') {
             return false;
