@@ -4,6 +4,12 @@
  */
 import {
     AdapterKind,
+    type Artifact,
+    ArtifactKind,
+    type Environment,
+    EnvironmentKind,
+    type EnvironmentRun,
+    type WaveRun,
     type Check,
     type Checklist,
     CheckStatus,
@@ -349,6 +355,51 @@ export const makeDiagnosis = (): Diagnosis => {
         ],
         chosenHypothesisIndex: 0,
         createdAt: TS
+    };
+};
+
+export const makeArtifact = (): Artifact => {
+    return {
+        id: SHA,
+        kind: ArtifactKind.DockerImage,
+        name: 'ghcr.io/stefanwerfling/flyingfish',
+        version: '1.0.0',
+        checksums: [{algorithm: 'sha256', value: SHA}],
+        producedByCycleId: 'cyc-1',
+        createdAt: TS
+    };
+};
+
+export const makeEnvironment = (): Environment => {
+    return {
+        id: 'env-prod-1',
+        name: 'prod-eu-1',
+        kind: EnvironmentKind.Production,
+        targetSystemId: 'debian-12',
+        labels: ['region:eu'],
+        address: undefined
+    };
+};
+
+export const makeWaveRun = (): WaveRun => {
+    return {
+        id: 'wave-1',
+        workflowId: 'release.flow',
+        workflowVersion: '1.0.0',
+        projectId: 'proj-example',
+        startedAt: TS
+    };
+};
+
+export const makeEnvironmentRun = (): EnvironmentRun => {
+    return {
+        id: 'envrun-1',
+        waveRunId: 'wave-1',
+        waveIndex: 0,
+        environmentId: 'env-prod-1',
+        workflowRunId: 'wfr-1',
+        state: CycleState.Passed,
+        recordedAt: TS
     };
 };
 

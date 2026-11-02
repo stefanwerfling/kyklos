@@ -21,10 +21,14 @@ import {
     WorkflowSchema,
     ActorSchema,
     ApprovalSchema,
+    ArtifactSchema,
     DiagnosisSchema,
+    EnvironmentSchema,
+    EnvironmentRunSchema,
     FeedbackSchema,
     TaskAssignmentSchema,
-    TaskSchema
+    TaskSchema,
+    WaveRunSchema
 } from '../../src/index';
 import {
     makeCheck,
@@ -48,10 +52,14 @@ import {
     makeWorkflowRun,
     makeActor,
     makeApproval,
+    makeArtifact,
     makeDiagnosis,
+    makeEnvironment,
+    makeEnvironmentRun,
     makeFeedback,
     makeTask,
-    makeTaskAssignment
+    makeTaskAssignment,
+    makeWaveRun
 } from '../fixtures';
 
 const cases = [
@@ -79,7 +87,11 @@ const cases = [
     {name: 'TaskAssignment', schema: TaskAssignmentSchema, value: makeTaskAssignment()},
     {name: 'Feedback', schema: FeedbackSchema, value: makeFeedback()},
     {name: 'Approval', schema: ApprovalSchema, value: makeApproval()},
-    {name: 'Diagnosis', schema: DiagnosisSchema, value: makeDiagnosis()}
+    {name: 'Diagnosis', schema: DiagnosisSchema, value: makeDiagnosis()},
+    {name: 'Artifact', schema: ArtifactSchema, value: makeArtifact()},
+    {name: 'Environment', schema: EnvironmentSchema, value: makeEnvironment()},
+    {name: 'WaveRun', schema: WaveRunSchema, value: makeWaveRun()},
+    {name: 'EnvironmentRun', schema: EnvironmentRunSchema, value: makeEnvironmentRun()}
 ];
 
 describe('Domain schemas accept valid samples', () => {

@@ -304,6 +304,37 @@ export enum DiagnosticKind {
     CycleDetected = 'cycle_detected'
 }
 
+/**
+ * Kind of a built artifact. The digest is the identity regardless of kind — two
+ * builds that yield the same digest are the same artifact.
+ */
+export enum ArtifactKind {
+    DockerImage = 'docker_image',
+    Package = 'package',
+    Archive = 'archive',
+    File = 'file'
+}
+
+/**
+ * What an environment is for. A wave typically rolls out test first, then
+ * production — the gate between waves is explicit, never automatic.
+ */
+export enum EnvironmentKind {
+    Test = 'test',
+    Staging = 'staging',
+    Production = 'production'
+}
+
+/**
+ * Disposition of one update wave. A wave passes only when every environment in
+ * it passed; a failed wave blocks the remaining waves.
+ */
+export enum WaveState {
+    Passed = 'passed',
+    Failed = 'failed',
+    Blocked = 'blocked'
+}
+
 const SEMVER_PATTERN = /^\d+\.\d+\.\d+$/u;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
 
