@@ -6,7 +6,10 @@
  * it passed (or passed with deviations); a failed wave blocks every later wave
  * — the gate between waves is explicit and deterministic, never an automatic
  * "continue anyway". The run header and each EnvironmentRun are appended, so the
- * store stays append-only and the rollout is auditable (and later resumable).
+ * store stays append-only and the rollout is resumable: `continue` re-runs only
+ * the environments that have not passed yet and leaves the rest untouched.
+ * Progress is announced through an optional Notifier that can never affect the
+ * result (dispatch is guarded and messages are redacted).
  */
 import {CycleState, WaveState} from '../Domain/Common.js';
 import {Environment} from '../Domain/Environment.js';
@@ -16,10 +19,11 @@ import {EnvironmentRun, EnvironmentRunSchema, WaveRun, WaveRunSchema} from '../D
 import {Workflow} from '../Domain/Workflow.js';
 import {Clock} from '../Cycle/Clock.js';
 import {IdGenerator} from '../Cycle/IdGenerator.js';
+import {LessonSanitizer} from '../Learning/LessonSanitizer.js';
+import {NotificationEvent, NotificationKind, Notifier} from '../Notify/Notifier.js';
 import {FileStore} from '../Store/FileStore.js';
 import {WorkflowEngine} from '../Workflow/WorkflowEngine.js';
-
-const PASSING = new Set<CycleState>([CycleState.Passed, CycleState.PassedWithDeviations]);
+import {WaveStateResolver} from './WaveStateResolver.js';
 
 /**
  * Collaborators the wave controller depends on.
@@ -29,6 +33,7 @@ export interface WaveControllerOptions {
     idGenerator: IdGenerator;
     clock: Clock;
     store?: FileStore;
+    notifier?: Notifier;
 }
 
 /**
@@ -90,6 +95,12 @@ export class WaveController {
     protected readonly _store: FileStore|undefined;
 
     /**
+     * Optional notification side-channel (advisory, never affects the result).
+     * @member {Notifier|undefined}
+     */
+    protected readonly _notifier: Notifier|undefined;
+
+    /**
      * @param {WaveControllerOptions} options - Engine and injected collaborators.
      */
     public constructor(options: WaveControllerOptions) {
@@ -97,6 +108,7 @@ export class WaveController {
         this._idGenerator = options.idGenerator;
         this._clock = options.clock;
         this._store = options.store;
+        this._notifier = options.notifier;
     }
 
     /**
@@ -117,6 +129,37 @@ export class WaveController {
             await this._store.appendRecord('waveRun', WaveRunSchema, run);
         }
 
+        this._notify({kind: NotificationKind.RolloutStarted, waveRunId: run.id, message: `rollout of '${run.workflowId}' started`});
+        return this._execute(input, run, []);
+    }
+
+    /**
+     * Continue a rollout from its recorded environment runs (resume).
+     * @param {WaveRunInput} input - The same project, workflow and waves.
+     * @param {WaveRun} run - The existing rollout header.
+     * @param {EnvironmentRun[]} priorRuns - The environment runs recorded so far.
+     * @returns {Promise<WaveRunResult>} The continued rollout result.
+     */
+    public async continue(input: WaveRunInput, run: WaveRun, priorRuns: EnvironmentRun[]): Promise<WaveRunResult> {
+        return this._execute(input, run, priorRuns);
+    }
+
+    /**
+     * Core wave loop, shared by run() and continue().
+     * @param {WaveRunInput} input - The rollout input.
+     * @param {WaveRun} run - The rollout header.
+     * @param {EnvironmentRun[]} priorRuns - Already-recorded environment runs (empty for a fresh rollout).
+     * @returns {Promise<WaveRunResult>} The rollout result.
+     */
+    protected async _execute(input: WaveRunInput, run: WaveRun, priorRuns: EnvironmentRun[]): Promise<WaveRunResult> {
+        const priorPassed = new Map<string, EnvironmentRun>();
+
+        for (const priorRun of priorRuns) {
+            if (WaveStateResolver.resolveWave([priorRun.state]) === WaveState.Passed) {
+                priorPassed.set(`${priorRun.waveIndex}:${priorRun.environmentId}`, priorRun);
+            }
+        }
+
         const waves: WaveOutcome[] = [];
         const environmentRuns: EnvironmentRun[] = [];
         let blocked = false;
@@ -124,37 +167,49 @@ export class WaveController {
         for (const [waveIndex, wave] of input.waves.entries()) {
             if (blocked) {
                 waves.push({waveIndex: waveIndex, state: WaveState.Blocked, environmentRuns: []});
+                this._notify({kind: NotificationKind.WaveBlocked, waveRunId: run.id, waveIndex: waveIndex, waveState: WaveState.Blocked, message: `wave ${waveIndex} blocked by an earlier failure`});
                 continue;
             }
 
             // sequential by design — a wave is gated before the next one starts
             // eslint-disable-next-line no-await-in-loop
-            const waveRuns = await this._runWave(input, run.id, waveIndex, wave);
+            const waveRuns = await this._runWave(input, run.id, waveIndex, wave, priorPassed);
             environmentRuns.push(...waveRuns);
 
-            const passed = waveRuns.every((environmentRun): boolean => PASSING.has(environmentRun.state));
-            waves.push({waveIndex: waveIndex, state: passed ? WaveState.Passed : WaveState.Failed, environmentRuns: waveRuns});
+            const state = WaveStateResolver.resolveWave(waveRuns.map((environmentRun): CycleState => environmentRun.state));
+            waves.push({waveIndex: waveIndex, state: state, environmentRuns: waveRuns});
+            this._notify(WaveController._waveEvent(run.id, waveIndex, state));
 
-            if (passed === false) {
+            if (state === WaveState.Failed) {
                 blocked = true;
             }
         }
 
-        return {run: run, waves: waves, environmentRuns: environmentRuns, state: WaveController._overallState(waves)};
+        const overall = WaveStateResolver.resolveOverall(waves.map((wave): WaveState => wave.state));
+        this._notify({kind: NotificationKind.RolloutCompleted, waveRunId: run.id, rolloutState: overall, message: `rollout of '${run.workflowId}' completed: ${overall}`});
+        return {run: run, waves: waves, environmentRuns: environmentRuns, state: overall};
     }
 
     /**
-     * Run every environment in one wave and record an EnvironmentRun each.
+     * Run (or reuse) every environment in one wave and record an EnvironmentRun each.
      * @param {WaveRunInput} input - The rollout input.
      * @param {string} waveRunId - The rollout header id.
      * @param {number} waveIndex - Zero-based index of this wave.
      * @param {Environment[]} wave - The environments in this wave.
-     * @returns {Promise<EnvironmentRun[]>} The recorded environment runs.
+     * @param {Map<string, EnvironmentRun>} priorPassed - Already-passed environment runs, by wave:env key.
+     * @returns {Promise<EnvironmentRun[]>} The environment runs (reused where already passed).
      */
-    protected async _runWave(input: WaveRunInput, waveRunId: string, waveIndex: number, wave: Environment[]): Promise<EnvironmentRun[]> {
+    protected async _runWave(input: WaveRunInput, waveRunId: string, waveIndex: number, wave: Environment[], priorPassed: Map<string, EnvironmentRun>): Promise<EnvironmentRun[]> {
         const runs: EnvironmentRun[] = [];
 
         for (const environment of wave) {
+            const reused = priorPassed.get(`${waveIndex}:${environment.id}`);
+
+            if (reused !== undefined) {
+                runs.push(reused);
+                continue;
+            }
+
             const target = input.resolveTarget(environment);
             // sequential by design — environments within a wave run in order
             // eslint-disable-next-line no-await-in-loop
@@ -183,20 +238,36 @@ export class WaveController {
     }
 
     /**
-     * Derive the overall rollout state from the wave outcomes.
-     * @param {WaveOutcome[]} waves - The per-wave outcomes.
-     * @returns {WaveState} Failed if any wave failed, Blocked if any was blocked, else Passed.
+     * Dispatch a notification safely: redact a tripped message and never let a
+     * failing notifier affect the rollout.
+     * @param {NotificationEvent} event - The event to deliver.
+     * @returns {void}
      */
-    protected static _overallState(waves: WaveOutcome[]): WaveState {
-        if (waves.some((wave): boolean => wave.state === WaveState.Failed)) {
-            return WaveState.Failed;
+    protected _notify(event: NotificationEvent): void {
+        if (this._notifier === undefined) {
+            return;
         }
 
-        if (waves.some((wave): boolean => wave.state === WaveState.Blocked)) {
-            return WaveState.Blocked;
-        }
+        const sensitive = LessonSanitizer.findSensitive([event.message]);
+        const safe = sensitive.length === 0 ? event : {...event, message: '[redacted]'};
 
-        return WaveState.Passed;
+        try {
+            this._notifier.notify(safe);
+        } catch {
+            // Notifications are advisory — a failing notifier must never change the rollout.
+        }
+    }
+
+    /**
+     * Build the wave-level event for a resolved wave state.
+     * @param {string} waveRunId - The rollout header id.
+     * @param {number} waveIndex - The wave index.
+     * @param {WaveState} state - The resolved wave state.
+     * @returns {NotificationEvent} The wave event.
+     */
+    protected static _waveEvent(waveRunId: string, waveIndex: number, state: WaveState): NotificationEvent {
+        const kind = state === WaveState.Passed ? NotificationKind.WavePassed : NotificationKind.WaveFailed;
+        return {kind: kind, waveRunId: waveRunId, waveIndex: waveIndex, waveState: state, message: `wave ${waveIndex} ${state}`};
     }
 
 }
