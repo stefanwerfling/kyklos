@@ -124,6 +124,27 @@ mit echten Adaptern ersetzen — `ShellAdapter` (mit Allowlist + Timeout), `Http
 ist, wird nie automatisch `passed`: er erzwingt `manual_release_required`, das das Gate
 nur mit autorisiertem, begründetem Override auflöst.
 
+### Lokalisierte manuelle Schritte
+
+Ein manueller Schritt zeigt dem Bediener einen Anweisungstext. `prompt` ist der
+Standard (Englisch, gemäß Sprachregelung); `prompts` ergänzt Übersetzungen je
+Sprachcode. `kyklos play --lang de` zeigt `prompts.de`, falls vorhanden, sonst
+`prompt`, sonst die Check-Beschreibung. Definitionen nur mit `prompt` funktionieren
+unverändert.
+
+```json
+"action": {"adapter": "manual", "params": {
+  "prompt": "Load the add-on via about:debugging.",
+  "prompts": {"de": "Add-on über about:debugging laden."}
+}}
+```
+
+Die Sprache betrifft nur die Anzeige: Check-IDs, Evidence, Zyklus-Zustand und
+Gate-Ergebnis sind für jedes `--lang` identisch. `${VAR}`-Platzhalter werden in
+jedem `prompts`-Wert genauso aufgelöst wie in `prompt`. Die Auflösung ist über alle
+Sprachen fail-closed: Ein unaufgelöster Platzhalter in irgendeiner Übersetzung macht
+den Schritt unabhängig von `--lang` `not_executable` (`unresolved_var`).
+
 ## Dokumentation
 
 - Analyse & Plan — Repository-Status, MVP-Abgrenzung, Domänenmodell,

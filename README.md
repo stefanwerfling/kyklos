@@ -118,6 +118,26 @@ adapters — `ShellAdapter` (with an allow-list + timeout), `HttpAdapter`, `Manu
 A critical check that is skipped, not executable or unknown never auto-passes: it forces
 `manual_release_required`, which the gate only clears with an authorized, justified override.
 
+### Localized manual steps
+
+A manual step shows its instruction text to the operator. `prompt` is the default
+(English, per the language policy); `prompts` adds translations by language code.
+`kyklos play --lang de` shows `prompts.de` when present, otherwise `prompt`,
+otherwise the check description. Definitions with only `prompt` keep working.
+
+```json
+"action": {"adapter": "manual", "params": {
+  "prompt": "Load the add-on via about:debugging.",
+  "prompts": {"de": "Add-on über about:debugging laden."}
+}}
+```
+
+The language is display-only: check IDs, evidence, cycle state and gate outcome
+are identical for every `--lang`. `${VAR}` placeholders are resolved in every
+`prompts` value just like in `prompt`. Resolution fails closed across all
+languages, so an unresolved placeholder in any translation makes the step
+`not_executable` (`unresolved_var`), whatever `--lang` is.
+
 ## Documentation
 
 - Analysis & plan — repository status, MVP scope, domain model, cycle flow,

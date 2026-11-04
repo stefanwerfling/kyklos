@@ -115,6 +115,34 @@ describe('CycleEngine', () => {
         expect(asked).toEqual(['c1']);
     });
 
+    it('the display language never changes the cycle or the gate outcome', async () => {
+        const localized: Check['action'] = {adapter: AdapterKind.Manual, params: {prompt: 'Load the add-on.', prompts: {de: 'Add-on laden.'}}};
+        const checklist = checklistOf([
+            check('c1', 'critical', printfOk, 'exitZero'),
+            check('c2', 'critical', localized, 'manualConfirm'),
+            check('c3', 'major', localized, 'manualConfirm')
+        ]);
+        const runIn = async (lang: string): Promise<{shown: string[]; result: Awaited<ReturnType<CycleEngine['run']>>;}> => {
+            const shown: string[] = [];
+            const confirm = async (chk: Check): Promise<boolean> => {
+                shown.push(ManualAdapter.selectPrompt(chk.action.params, chk.description, lang));
+                return chk.id === 'c2';
+            };
+            const result = await newEngine().run({project: makeProject(), procedure: makeProcedure(), checklist: checklist, confirm: confirm});
+            return {shown: shown, result: result};
+        };
+        const gateOf = (cycle: Awaited<ReturnType<CycleEngine['run']>>['cycle']): ReleaseOutcome => {
+            return ReleaseGate.decide({cycle: cycle, ruleVersion: '1.0.0', decidedBy: 'gate', idGenerator: new SequentialIdGenerator(), clock: new FixedClock()}).outcome;
+        };
+
+        const en = await runIn('en');
+        const de = await runIn('de');
+        expect(en.shown).toEqual(['Load the add-on.', 'Load the add-on.']);
+        expect(de.shown).toEqual(['Add-on laden.', 'Add-on laden.']);
+        expect(de.result).toStrictEqual(en.result);
+        expect(gateOf(de.result.cycle)).toBe(gateOf(en.result.cycle));
+    });
+
     it('a declined manual check holds for release', async () => {
         const checklist = checklistOf([check('c1', 'critical', manualUnanswered, 'manualConfirm')]);
         const result = await newEngine().run({project: makeProject(), procedure: makeProcedure(), checklist: checklist, confirm: async (): Promise<boolean> => false});

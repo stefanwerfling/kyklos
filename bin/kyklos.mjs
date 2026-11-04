@@ -16,8 +16,11 @@
  *       Simulate every adapter; no side effects.
  *
  * Defaults: --store ./.kyklos ; --manifest the single *.run.json in the store ;
- * --env <store>/.env when present ; --lang en. Output labels follow --lang; the
- * step instructions follow the language of the playbook definitions.
+ * --env <store>/.env when present ; --lang en. Output labels follow --lang. A
+ * manual step shows `prompts[<lang>]` when its definition carries one, else the
+ * default `prompt`, else the check description (ManualAdapter.selectPrompt).
+ * The language is display-only: check IDs, evidence and the gate outcome are
+ * identical for every --lang.
  */
 import {existsSync, readFileSync, readdirSync} from 'node:fs';
 import {dirname, join, resolve} from 'node:path';
@@ -26,7 +29,7 @@ import {fileURLToPath} from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const lib = await import(join(here, '..', 'dist', 'index.js'));
-const {DryRunner, FileStore, ManualConfirmationSchema, RandomIdGenerator, RealRunner, ReleaseGate, SystemClock} = lib;
+const {DryRunner, FileStore, ManualAdapter, ManualConfirmationSchema, RandomIdGenerator, RealRunner, ReleaseGate, SystemClock} = lib;
 
 const argv = process.argv.slice(2);
 const command = argv[0];
@@ -59,8 +62,13 @@ const MESSAGES = {
         playHelp: '  play     interaktiv — führt Checks aus, fragt bei jedem manuellen Schritt, setzt nach Unterbrechung fort',
         runHelp: '  run      nicht-interaktiv (CI); Bestätigungen über --confirm <datei>',
         dryHelp: '  dry-run  simuliert jeden Adapter; keine Seiteneffekte',
-        status: {passed: 'bestanden', failed: 'fehlgeschlagen', unknown: 'offen', not_applicable: 'nicht zutreffend', skipped: 'übersprungen', not_executable: 'nicht ausführbar'},
-        outcome: {approve: 'freigegeben', reject: 'abgelehnt', manual_release_required: 'manuelle Freigabe nötig'}
+        status: {
+            // check status
+            passed: 'bestanden', failed: 'fehlgeschlagen', unknown: 'offen', not_applicable: 'nicht zutreffend', skipped: 'übersprungen', not_executable: 'nicht ausführbar',
+            // cycle state (passed / failed shared with the check status)
+            prepared: 'vorbereitet', running: 'läuft', passed_with_deviations: 'bestanden mit Abweichungen', aborted: 'abgebrochen', manual_release_required: 'manuelle Freigabe nötig'
+        },
+        outcome: {approve: 'freigegeben', reject: 'abgelehnt', abort: 'abgebrochen', manual_release_required: 'manuelle Freigabe nötig'}
     }
 };
 const L = MESSAGES[lang];
@@ -164,8 +172,7 @@ if (command === 'play') {
     const ask = (question) => new Promise((done) => rl.question(question, done));
 
     const confirm = async (check) => {
-        const prompt = check.action?.params?.prompt;
-        const raw = typeof prompt === 'string' && prompt.length > 0 ? prompt : check.description;
+        const raw = ManualAdapter.selectPrompt(check.action?.params, check.description, lang);
         console.log(`\n→ ${L.manualStep} [${check.id}]: ${resolvePrompt(raw, env)}`);
         const answer = (await ask(L.donePrompt)).trim().toLowerCase();
         if (answer !== 'y' && answer !== 'j') {
